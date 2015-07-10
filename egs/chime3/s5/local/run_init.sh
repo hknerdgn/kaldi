@@ -23,7 +23,7 @@ fi
 # This is a shell script, but it's recommended that you run the commands one by
 # one by copying and pasting into the shell.
 
-nj=30
+nj=20
 # clean data
 chime3_data=$1
 wsj0_data=$chime3_data/data/WSJ0 # directory of WSJ0 in CHiME3. You can also specify your WSJ0 corpus directory
@@ -44,7 +44,7 @@ local/clean_chime3_format_data.sh || exit 1;
 local/real_close_chime3_data_prep.sh $chime3_data || exit 1;
 
 # process for booth recording speech (will not be used)
-# local/bth_chime3_data_prep.sh $chime3_data || exit 1;
+local/bth_chime3_data_prep.sh $chime3_data || exit 1;
 
 # process for distant talking speech for real and simulation data
 local/real_noisy_chime3_data_prep.sh $chime3_data || exit 1;
@@ -61,9 +61,9 @@ else
 fi
 # real data
 if $eval_flag; then
-  list=$list" tr05_real_noisy dt05_real_noisy et05_real_noisy"
+  list=$list" tr05_real_close tr05_real_noisy dt05_real_close dt05_real_noisy et05_real_close et05_real_noisy"
 else
-  list=$list" tr05_real_noisy dt05_real_noisy"
+  list=$list" tr05_real_close tr05_real_noisy dt05_real_close dt05_real_noisy"
 fi
 # simulation data
 if $eval_flag; then
@@ -73,7 +73,7 @@ else
 fi
 mfccdir=mfcc
 for x in $list; do 
-  steps/make_mfcc.sh --nj 8 \
+  steps/make_mfcc.sh --nj 10 --cmd "$train_cmd" \
     data/$x exp/make_mfcc/$x $mfccdir || exit 1;
   steps/compute_cmvn_stats.sh data/$x exp/make_mfcc/$x $mfccdir || exit 1;
 done
@@ -94,26 +94,26 @@ for train in tr05_multi_noisy tr05_orig_clean; do
   else
     nj2=$nj
   fi
-  steps/train_mono.sh --boost-silence 1.25 --nj $nj2 \
+  steps/train_mono.sh --boost-silence 1.25 --cmd "$train_cmd" --nj $nj2 \
     data/$train data/lang exp/mono0a_$train || exit 1;
 
-  steps/align_si.sh --boost-silence 1.25 --nj $nj2 \
+  steps/align_si.sh --boost-silence 1.25 --cmd "$train_cmd" --nj $nj2 \
     data/$train data/lang exp/mono0a_$train exp/mono0a_ali_$train || exit 1;
 
-  steps/train_deltas.sh --boost-silence 1.25 \
+  steps/train_deltas.sh --boost-silence 1.25 --cmd "$train_cmd" \
     2000 10000 data/$train data/lang exp/mono0a_ali_$train exp/tri1_$train || exit 1;
 
-  steps/align_si.sh --nj $nj2 \
+  steps/align_si.sh --nj $nj2 --cmd "$train_cmd" \
     data/$train data/lang exp/tri1_$train exp/tri1_ali_$train || exit 1;
 
-  steps/train_lda_mllt.sh \
+  steps/train_lda_mllt.sh --cmd "$train_cmd" \
     --splice-opts "--left-context=3 --right-context=3" \
     2500 15000 data/$train data/lang exp/tri1_ali_$train exp/tri2b_$train || exit 1;
 
-  steps/align_si.sh  --nj $nj2 \
+  steps/align_si.sh --cmd "$train_cmd" --nj $nj2 \
     --use-graphs true data/$train data/lang exp/tri2b_$train exp/tri2b_ali_$train  || exit 1;
 
-  steps/train_sat.sh \
+  steps/train_sat.sh --cmd "$train_cmd" \
     2500 15000 data/$train data/lang exp/tri2b_ali_$train exp/tri3b_$train || exit 1;
 
   utils/mkgraph.sh data/lang_test_tgpr_5k exp/tri3b_$train exp/tri3b_$train/graph_tgpr_5k || exit 1;
@@ -125,14 +125,14 @@ for train in tr05_multi_noisy tr05_orig_clean; do
   # steps/decode_fmllr.sh --nj 4 --num-threads 4 \
   #   exp/tri3b_$train/graph_tgpr_5k data/et05_real_close exp/tri3b_$train/decode_tgpr_5k_et05_real_close &
   # decode real noisy speech
-  steps/decode_fmllr.sh --nj 4 --num-threads 4 \
+  steps/decode_fmllr.sh --cmd "$decode_cmd" --nj 4 --num-threads 4 --parallel-opts '-pe smp 4'\
     exp/tri3b_$train/graph_tgpr_5k data/dt05_real_noisy exp/tri3b_$train/decode_tgpr_5k_dt05_real_noisy &
-  steps/decode_fmllr.sh --nj 4 --num-threads 4 \
+  steps/decode_fmllr.sh --cmd "$decode_cmd" --nj 4 --num-threads 4 --parallel-opts '-pe smp 4'\
     exp/tri3b_$train/graph_tgpr_5k data/et05_real_noisy exp/tri3b_$train/decode_tgpr_5k_et05_real_noisy &
   # decode simu noisy speech
-  steps/decode_fmllr.sh --nj 4 --num-threads 4 \
+  steps/decode_fmllr.sh --cmd "$decode_cmd" --nj 4 --num-threads 4 --parallel-opts '-pe smp 4'\
     exp/tri3b_$train/graph_tgpr_5k data/dt05_simu_noisy exp/tri3b_$train/decode_tgpr_5k_dt05_simu_noisy &
-  steps/decode_fmllr.sh --nj 4 --num-threads 4 \
+  steps/decode_fmllr.sh --cmd "$decode_cmd" --nj 4 --num-threads 4 --parallel-opts '-pe smp 4'\
     exp/tri3b_$train/graph_tgpr_5k data/et05_simu_noisy exp/tri3b_$train/decode_tgpr_5k_et05_simu_noisy &
 done
 wait

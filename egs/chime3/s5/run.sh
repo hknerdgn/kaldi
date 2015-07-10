@@ -15,7 +15,7 @@
 # baseline results without speech enhancement techniques, and so on.
 # Please set a main root directory of the CHiME3 data
 # If you use kaldi scripts distributed in the CHiME3 data, 
-chime3_data=`pwd`/../.. 
+chime3_data=/export/ws15-ffs-data/corpora/chime3/CHiME3
 # Otherwise, please specify it, e.g., 
 # chime3_data=/local_data/watanabe/work/201410CHiME3/CHiME3
 local/run_init.sh $chime3_data
