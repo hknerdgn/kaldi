@@ -22,6 +22,13 @@ if [ $# -ne 2 ]; then
   exit 1;
 fi
 
+
+# Set bash to 'debug' mode, it will exit on :                                                                                                                                  # -e 'error', -u 'undefined variable', -o ... 'error in pipeline', -x 'print commands',                                                                                        
+set -e
+set -u
+set -o pipefail
+set -x
+
 nj=30
 
 # enhan data
@@ -35,17 +42,17 @@ if [ ! -d data/lang ]; then
 fi
 
 # process for enhan data
-local/real_enhan_chime3_data_prep.sh $enhan $enhan_data || exit 1;
-local/simu_enhan_chime3_data_prep.sh $enhan $enhan_data || exit 1;
+local/real_enhan_chime3_data_prep.sh $enhan $enhan_data 
+local/simu_enhan_chime3_data_prep.sh $enhan $enhan_data 
 
 # Now make MFCC features for clean, close, and noisy data
 # mfccdir should be some place with a largish disk where you
 # want to store MFCC features.
 mfccdir=mfcc/$enhan
 for x in dt05_real_$enhan et05_real_$enhan tr05_real_$enhan dt05_simu_$enhan et05_simu_$enhan tr05_simu_$enhan; do 
-  steps/make_mfcc.sh --nj $nj \
-    data/$x exp/make_mfcc/$x $mfccdir || exit 1;
-  steps/compute_cmvn_stats.sh data/$x exp/make_mfcc/$x $mfccdir || exit 1;
+  steps/make_mfcc.sh --nj 10 --cmd "$train_cmd" \
+    data/$x exp/make_mfcc/$x $mfccdir 
+  steps/compute_cmvn_stats.sh data/$x exp/make_mfcc/$x $mfccdir 
 done
 
 # make mixed training set from real and simulation enhancement training data
@@ -55,51 +62,51 @@ utils/combine_data.sh data/dt05_multi_$enhan data/dt05_simu_$enhan data/dt05_rea
 utils/combine_data.sh data/et05_multi_$enhan data/et05_simu_$enhan data/et05_real_$enhan
 
 # decode enhan speech using clean AMs
-steps/decode_fmllr.sh --nj 4 --num-threads 4 \
+steps/decode_fmllr.sh --cmd "$decode_cmd" --nj 4 --num-threads 4 --parallel-opts '-pe smp 4'\
   exp/tri3b_tr05_orig_clean/graph_tgpr_5k data/dt05_real_$enhan exp/tri3b_tr05_orig_clean/decode_tgpr_5k_dt05_real_$enhan &
-steps/decode_fmllr.sh --nj 4 --num-threads 4 \
+steps/decode_fmllr.sh --cmd "$decode_cmd" --nj 4 --num-threads 4 --parallel-opts '-pe smp 4'\
   exp/tri3b_tr05_orig_clean/graph_tgpr_5k data/dt05_simu_$enhan exp/tri3b_tr05_orig_clean/decode_tgpr_5k_dt05_simu_$enhan &
-steps/decode_fmllr.sh --nj 4 --num-threads 4 \
+steps/decode_fmllr.sh --cmd "$decode_cmd" --nj 4 --num-threads 4 --parallel-opts '-pe smp 4'\
   exp/tri3b_tr05_orig_clean/graph_tgpr_5k data/et05_real_$enhan exp/tri3b_tr05_orig_clean/decode_tgpr_5k_et05_real_$enhan &
-steps/decode_fmllr.sh --nj 4 --num-threads 4 \
+steps/decode_fmllr.sh --cmd "$decode_cmd" --nj 4 --num-threads 4 --parallel-opts '-pe smp 4'\
   exp/tri3b_tr05_orig_clean/graph_tgpr_5k data/et05_simu_$enhan exp/tri3b_tr05_orig_clean/decode_tgpr_5k_et05_simu_$enhan &
 
 # training models using enhan data
-steps/train_mono.sh --boost-silence 1.25 --nj $nj \
-  data/tr05_multi_$enhan data/lang exp/mono0a_tr05_multi_$enhan || exit 1;
+steps/train_mono.sh --boost-silence 1.25 --nj $nj --cmd "$train_cmd" \
+  data/tr05_multi_$enhan data/lang exp/mono0a_tr05_multi_$enhan 
 
-steps/align_si.sh --boost-silence 1.25 --nj $nj \
-  data/tr05_multi_$enhan data/lang exp/mono0a_tr05_multi_$enhan exp/mono0a_ali_tr05_multi_$enhan || exit 1;
+steps/align_si.sh --boost-silence 1.25 --nj $nj --cmd "$train_cmd" \
+  data/tr05_multi_$enhan data/lang exp/mono0a_tr05_multi_$enhan exp/mono0a_ali_tr05_multi_$enhan 
 
-steps/train_deltas.sh --boost-silence 1.25 \
-  2000 10000 data/tr05_multi_$enhan data/lang exp/mono0a_ali_tr05_multi_$enhan exp/tri1_tr05_multi_$enhan || exit 1;
+steps/train_deltas.sh --boost-silence 1.25 --cmd "$train_cmd" \
+  2000 10000 data/tr05_multi_$enhan data/lang exp/mono0a_ali_tr05_multi_$enhan exp/tri1_tr05_multi_$enhan 
 
-steps/align_si.sh --nj $nj \
-  data/tr05_multi_$enhan data/lang exp/tri1_tr05_multi_$enhan exp/tri1_ali_tr05_multi_$enhan || exit 1;
+steps/align_si.sh --nj $nj --cmd "$train_cmd" \
+  data/tr05_multi_$enhan data/lang exp/tri1_tr05_multi_$enhan exp/tri1_ali_tr05_multi_$enhan 
 
-steps/train_lda_mllt.sh \
+steps/train_lda_mllt.sh --cmd "$train_cmd" \
   --splice-opts "--left-context=3 --right-context=3" \
-  2500 15000 data/tr05_multi_$enhan data/lang exp/tri1_ali_tr05_multi_$enhan exp/tri2b_tr05_multi_$enhan || exit 1;
+  2500 15000 data/tr05_multi_$enhan data/lang exp/tri1_ali_tr05_multi_$enhan exp/tri2b_tr05_multi_$enhan 
 
-steps/align_si.sh  --nj $nj \
-  --use-graphs true data/tr05_multi_$enhan data/lang exp/tri2b_tr05_multi_$enhan exp/tri2b_ali_tr05_multi_$enhan  || exit 1;
+steps/align_si.sh  --nj $nj --cmd "$train_cmd" \
+  --use-graphs true data/tr05_multi_$enhan data/lang exp/tri2b_tr05_multi_$enhan exp/tri2b_ali_tr05_multi_$enhan  
 
-steps/train_sat.sh \
-  2500 15000 data/tr05_multi_$enhan data/lang exp/tri2b_ali_tr05_multi_$enhan exp/tri3b_tr05_multi_$enhan || exit 1;
+steps/train_sat.sh --cmd "$train_cmd" \
+  2500 15000 data/tr05_multi_$enhan data/lang exp/tri2b_ali_tr05_multi_$enhan exp/tri3b_tr05_multi_$enhan 
 
-utils/mkgraph.sh data/lang_test_tgpr_5k exp/tri3b_tr05_multi_$enhan exp/tri3b_tr05_multi_$enhan/graph_tgpr_5k || exit 1;
+utils/mkgraph.sh data/lang_test_tgpr_5k exp/tri3b_tr05_multi_$enhan exp/tri3b_tr05_multi_$enhan/graph_tgpr_5k 
 
 # decode enhan speech using enhan AMs
-steps/decode_fmllr.sh --nj 4 --num-threads 4 \
+steps/decode_fmllr.sh --cmd "$decode_cmd" --nj 4 --num-threads 4 --parallel-opts '-pe smp 4'\
   exp/tri3b_tr05_multi_$enhan/graph_tgpr_5k data/dt05_real_$enhan exp/tri3b_tr05_multi_$enhan/decode_tgpr_5k_dt05_real_$enhan &
-steps/decode_fmllr.sh --nj 4 --num-threads 4 \
+steps/decode_fmllr.sh --cmd "$decode_cmd" --nj 4 --num-threads 4 --parallel-opts '-pe smp 4'\
   exp/tri3b_tr05_multi_$enhan/graph_tgpr_5k data/dt05_simu_$enhan exp/tri3b_tr05_multi_$enhan/decode_tgpr_5k_dt05_simu_$enhan &
-steps/decode_fmllr.sh --nj 4 --num-threads 4 \
+steps/decode_fmllr.sh --cmd "$decode_cmd" --nj 4 --num-threads 4 --parallel-opts '-pe smp 4'\
   exp/tri3b_tr05_multi_$enhan/graph_tgpr_5k data/et05_real_$enhan exp/tri3b_tr05_multi_$enhan/decode_tgpr_5k_et05_real_$enhan &
-steps/decode_fmllr.sh --nj 4 --num-threads 4 \
+steps/decode_fmllr.sh --cmd "$decode_cmd" --nj 4 --num-threads 4 --parallel-opts '-pe smp 4'\
   exp/tri3b_tr05_multi_$enhan/graph_tgpr_5k data/et05_simu_$enhan exp/tri3b_tr05_multi_$enhan/decode_tgpr_5k_et05_simu_$enhan &
-
 wait;
+
 # decoded results of enhan speech using clean AMs
 local/chime3_calc_wers.sh exp/tri3b_tr05_orig_clean $enhan > exp/tri3b_tr05_orig_clean/best_wer_$enhan.result
 head -n 15 exp/tri3b_tr05_orig_clean/best_wer_$enhan.result
