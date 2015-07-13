@@ -5,25 +5,23 @@
 # (make sure your --num-jobs options are no more than
 # the number of cpus on your machine.
 
-#a) JHU cluster options
-#export train_cmd="queue.pl -l arch=*64"
-#export decode_cmd="queue.pl -l arch=*64,mem_free=2G,ram_free=2G"
-#export mkgraph_cmd="queue.pl -l arch=*64,ram_free=4G,mem_free=4G"
+# On Eddie use:
+#export train_cmd="queue.pl -P inf_hcrc_cstr_nst -l h_rt=08:00:00"
+#export decode_cmd="queue.pl -P inf_hcrc_cstr_nst  -l h_rt=05:00:00 -pe memory-2G 4"
+#export highmem_cmd="queue.pl -P inf_hcrc_cstr_nst -l h_rt=05:00:00 -pe memory-2G 4"
+#export scoring_cmd="queue.pl -P inf_hcrc_cstr_nst  -l h_rt=00:20:00"
 
-#export cuda_cmd="..."
-
-
-#b) BUT cluster options
-#export train_cmd="queue.pl -q all.q@@blade -l ram_free=1200M,mem_free=1200M"
-#export decode_cmd="queue.pl -q all.q@@blade -l ram_free=1700M,mem_free=1700M"
-#export decodebig_cmd="queue.pl -q all.q@@blade -l ram_free=4G,mem_free=4G"
-
-#export cuda_cmd="queue.pl -q long.q@@pco203 -l gpu=1"
-#export cuda_cmd="queue.pl -q long.q@pcspeech-gpu"
-#export mkgraph_cmd="queue.pl -q all.q@@servers -l ram_free=4G,mem_free=4G"
-
-#c) run it locally...
-export train_cmd=run.pl
-export decode_cmd=run.pl
+#On WS15 cluster( AWS-EC2)
+export train_cmd="queue.pl -l arch=*64* -q all.q"
+export decode_cmd="queue.pl -l arch=*64* --mem 4G -q all.q"
+export highmem_cmd="queue.pl -l arch=*64* --mem 4G -q all.q"
+export scoring_cmd="queue.pl -l arch=*64* -q all.q"
+#export cuda_cmd="queue.pl --gpu 1"
+#export cuda_cmd="queue.pl -q gpu.q -l gpu=1"
 export cuda_cmd=run.pl
-export mkgraph_cmd=run.pl
+
+# To run locally, use:
+#export train_cmd=run.pl
+#export decode_cmd=run.pl
+#export highmem_cmd=run.pl
+#export cuda_cmd=run.pl
