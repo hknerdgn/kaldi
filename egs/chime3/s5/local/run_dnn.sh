@@ -22,6 +22,12 @@ if [ $# -ne 2 ]; then
   exit 1;
 fi
 
+# Set bash to 'debug' mode, it will exit on :                                                                                                                                  # -e 'error', -u 'undefined variable', -o ... 'error in pipeline', -x 'print commands',                                                                                        
+set -e
+set -u
+set -o pipefail
+set -x
+
 nj=30
 
 # enhan data
@@ -45,8 +51,8 @@ fbankdir=fbank/$enhan
 mkdir -p data-fbank
 for x in dt05_real_$enhan et05_real_$enhan tr05_real_$enhan dt05_simu_$enhan et05_simu_$enhan tr05_simu_$enhan; do
   cp -r data/$x data-fbank
-  steps/make_fbank.sh --nj $nj \
-    data-fbank/$x exp/make_fbank/$x $fbankdir || exit 1;
+  steps/make_fbank.sh --nj 10 --cmd "$train_cmd" \
+    data-fbank/$x exp/make_fbank/$x $fbankdir 
 done
 
 # make mixed training set from real and simulation enhancement training data
@@ -56,10 +62,10 @@ utils/combine_data.sh data-fbank/dt05_multi_$enhan data-fbank/dt05_simu_$enhan d
 utils/combine_data.sh data-fbank/et05_multi_$enhan data-fbank/et05_simu_$enhan data-fbank/et05_real_$enhan
 
 # get alignment
-steps/align_fmllr.sh --nj $nj \
-  data/tr05_multi_$enhan data/lang exp/tri3b_tr05_multi_$enhan exp/tri3b_tr05_multi_${enhan}_ali || exit 1;
-steps/align_fmllr.sh --nj 4 \
-  data/dt05_multi_$enhan data/lang exp/tri3b_tr05_multi_$enhan exp/tri3b_tr05_multi_${enhan}_ali_dt05 || exit 1;
+steps/align_fmllr.sh --nj $nj --cmd "$train_cmd" \
+  data/tr05_multi_$enhan data/lang exp/tri3b_tr05_multi_$enhan exp/tri3b_tr05_multi_${enhan}_ali 
+steps/align_fmllr.sh --nj 4 --cmd "$train_cmd" \
+  data/dt05_multi_$enhan data/lang exp/tri3b_tr05_multi_$enhan exp/tri3b_tr05_multi_${enhan}_ali_dt05 
 
 # pre-train dnn
 dir=exp/tri4a_dnn_pretrain_tr05_multi_$enhan
@@ -74,17 +80,17 @@ feature_transform=exp/tri4a_dnn_pretrain_tr05_multi_$enhan/final.feature_transfo
 dbn=exp/tri4a_dnn_pretrain_tr05_multi_$enhan/7.dbn
 $cuda_cmd $dir/_train_nnet.log \
 steps/nnet/train.sh --feature-transform $feature_transform --dbn $dbn --hid-layers 0 --learn-rate 0.008 \
-data-fbank/tr05_multi_$enhan data-fbank/dt05_multi_$enhan data/lang $ali $ali_dev $dir || exit 1;
+data-fbank/tr05_multi_$enhan data-fbank/dt05_multi_$enhan data/lang $ali $ali_dev $dir 
 
 # decode enhan speech
-utils/mkgraph.sh data/lang_test_tgpr_5k $dir $dir/graph_tgpr_5k || exit 1;
-steps/nnet/decode.sh --nj 4 --num-threads 4 --acwt 0.10 --config conf/decode_dnn.config \
+utils/mkgraph.sh data/lang_test_tgpr_5k $dir $dir/graph_tgpr_5k 
+steps/nnet/decode.sh --cmd "$decode_cmd" --nj 4 --num-threads 3 --parallel-opts '-pe smp 4' --acwt 0.10 --config conf/decode_dnn.config \
   $dir/graph_tgpr_5k data-fbank/dt05_real_$enhan $dir/decode_tgpr_5k_dt05_real_$enhan &
-steps/nnet/decode.sh --nj 4 --num-threads 4 --acwt 0.10 --config conf/decode_dnn.config \
+steps/nnet/decode.sh --cmd "$decode_cmd" --nj 4 --num-threads 3 --parallel-opts '-pe smp 4' --acwt 0.10 --config conf/decode_dnn.config \
   $dir/graph_tgpr_5k data-fbank/dt05_simu_$enhan $dir/decode_tgpr_5k_dt05_simu_$enhan &
-steps/nnet/decode.sh --nj 4 --num-threads 4 --acwt 0.10 --config conf/decode_dnn.config \
+steps/nnet/decode.sh --cmd "$decode_cmd" --nj 4 --num-threads 3 --parallel-opts '-pe smp 4' --acwt 0.10 --config conf/decode_dnn.config \
   $dir/graph_tgpr_5k data-fbank/et05_real_$enhan $dir/decode_tgpr_5k_et05_real_$enhan &
-steps/nnet/decode.sh --nj 4 --num-threads 4 --acwt 0.10 --config conf/decode_dnn.config \
+steps/nnet/decode.sh --cmd "$decode_cmd" --nj 4 --num-threads 3 --parallel-opts '-pe smp 4' --acwt 0.10 --config conf/decode_dnn.config \
   $dir/graph_tgpr_5k data-fbank/et05_simu_$enhan $dir/decode_tgpr_5k_et05_simu_$enhan &
 wait;
 
@@ -109,16 +115,16 @@ steps/nnet/train_mpe.sh --cmd "$cuda_cmd" --num-iters 1 --acwt $acwt --do-smbr t
 
 # Decode (reuse HCLG graph)
 for ITER in 1; do
-  steps/nnet/decode.sh --nj 4 --num-threads 4 --cmd "$decode_cmd" --config conf/decode_dnn.config \
+  steps/nnet/decode.sh --cmd "$decode_cmd" --nj 4 --num-threads 3 --parallel-opts '-pe smp 4' --acwt 0.10 --config conf/decode_dnn.config \
     --nnet $dir/${ITER}.nnet --acwt $acwt \
     exp/tri4a_dnn_tr05_multi_${enhan}/graph_tgpr_5k data-fbank/dt05_real_${enhan} $dir/decode_tgpr_5k_dt05_real_${enhan}_it${ITER} &
-  steps/nnet/decode.sh --nj 4 --num-threads 4 --cmd "$decode_cmd" --config conf/decode_dnn.config \
+  steps/nnet/decode.sh --cmd "$decode_cmd" --nj 4 --num-threads 3 --parallel-opts '-pe smp 4' --acwt 0.10 --config conf/decode_dnn.config \
     --nnet $dir/${ITER}.nnet --acwt $acwt \
     exp/tri4a_dnn_tr05_multi_${enhan}/graph_tgpr_5k data-fbank/dt05_simu_${enhan} $dir/decode_tgpr_5k_dt05_simu_${enhan}_it${ITER} &
-  steps/nnet/decode.sh --nj 4 --num-threads 4 --cmd "$decode_cmd" --config conf/decode_dnn.config \
+  steps/nnet/decode.sh --cmd "$decode_cmd" --nj 4 --num-threads 3 --parallel-opts '-pe smp 4' --acwt 0.10 --config conf/decode_dnn.config \
     --nnet $dir/${ITER}.nnet --acwt $acwt \
     exp/tri4a_dnn_tr05_multi_${enhan}/graph_tgpr_5k data-fbank/et05_real_${enhan} $dir/decode_tgpr_5k_et05_real_${enhan}_it${ITER} &
-  steps/nnet/decode.sh --nj 4 --num-threads 4 --cmd "$decode_cmd" --config conf/decode_dnn.config \
+  steps/nnet/decode.sh --cmd "$decode_cmd" --nj 4 --num-threads 3 --parallel-opts '-pe smp 4' --acwt 0.10 --config conf/decode_dnn.config \
     --nnet $dir/${ITER}.nnet --acwt $acwt \
     exp/tri4a_dnn_tr05_multi_${enhan}/graph_tgpr_5k data-fbank/et05_simu_${enhan} $dir/decode_tgpr_5k_et05_simu_${enhan}_it${ITER} &
 done
@@ -140,16 +146,16 @@ steps/nnet/train_mpe.sh --cmd "$cuda_cmd" --num-iters 4 --acwt $acwt --do-smbr t
 
 # Decode (reuse HCLG graph)
 for ITER in 1 2 3 4; do
-  steps/nnet/decode.sh --nj 4 --num-threads 4 --cmd "$decode_cmd" --config conf/decode_dnn.config \
+  steps/nnet/decode.sh --cmd "$decode_cmd" --nj 4 --num-threads 3 --parallel-opts '-pe smp 4' --acwt 0.10 --config conf/decode_dnn.config \
     --nnet $dir/${ITER}.nnet --acwt $acwt \
     exp/tri4a_dnn_tr05_multi_${enhan}/graph_tgpr_5k data-fbank/dt05_real_${enhan} $dir/decode_tgpr_5k_dt05_real_${enhan}_it${ITER} &
-  steps/nnet/decode.sh --nj 4 --num-threads 4 --cmd "$decode_cmd" --config conf/decode_dnn.config \
+  steps/nnet/decode.sh --cmd "$decode_cmd" --nj 4 --num-threads 3 --parallel-opts '-pe smp 4' --acwt 0.10 --config conf/decode_dnn.config \
     --nnet $dir/${ITER}.nnet --acwt $acwt \
     exp/tri4a_dnn_tr05_multi_${enhan}/graph_tgpr_5k data-fbank/dt05_simu_${enhan} $dir/decode_tgpr_5k_dt05_simu_${enhan}_it${ITER} &
-  steps/nnet/decode.sh --nj 4 --num-threads 4 --cmd "$decode_cmd" --config conf/decode_dnn.config \
+  steps/nnet/decode.sh --cmd "$decode_cmd" --nj 4 --num-threads 3 --parallel-opts '-pe smp 4' --acwt 0.10 --config conf/decode_dnn.config \
     --nnet $dir/${ITER}.nnet --acwt $acwt \
     exp/tri4a_dnn_tr05_multi_${enhan}/graph_tgpr_5k data-fbank/et05_real_${enhan} $dir/decode_tgpr_5k_et05_real_${enhan}_it${ITER} &
-  steps/nnet/decode.sh --nj 4 --num-threads 4 --cmd "$decode_cmd" --config conf/decode_dnn.config \
+  steps/nnet/decode.sh --cmd "$decode_cmd" --nj 4 --num-threads 3 --parallel-opts '-pe smp 4' --acwt 0.10 --config conf/decode_dnn.config \
     --nnet $dir/${ITER}.nnet --acwt $acwt \
     exp/tri4a_dnn_tr05_multi_${enhan}/graph_tgpr_5k data-fbank/et05_simu_${enhan} $dir/decode_tgpr_5k_et05_simu_${enhan}_it${ITER} &
 done
@@ -157,7 +163,6 @@ wait
 
 # decoded results of enhan speech using enhan DNN AMs
 local/chime3_calc_wers.sh exp/tri4a_dnn_tr05_multi_$enhan $enhan > exp/tri4a_dnn_tr05_multi_$enhan/best_wer_$enhan.result
-head -n 15 exp/tri4a_dnn_tr05_multi_$enhan/best_wer_$enhan.result
 # decoded results of enhan speech using enhan DNN AMs with sequence training
 ./local/chime3_calc_wers_smbr.sh exp/tri4a_dnn_tr05_multi_${enhan}_smbr_i1lats ${enhan} exp/tri4a_dnn_tr05_multi_${enhan}/graph_tgpr_5k \
     > exp/tri4a_dnn_tr05_multi_${enhan}_smbr_i1lats/best_wer_${enhan}.result

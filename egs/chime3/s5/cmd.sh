@@ -17,8 +17,8 @@ export decode_cmd="queue.pl -l arch=*64* --mem 4G -q all.q"
 export highmem_cmd="queue.pl -l arch=*64* --mem 4G -q all.q"
 export scoring_cmd="queue.pl -l arch=*64* -q all.q"
 #export cuda_cmd="queue.pl --gpu 1"
-#export cuda_cmd="queue.pl -q gpu.q -l gpu=1"
-export cuda_cmd=run.pl
+export cuda_cmd="queue.pl -q gpu.q -l gpu=1"
+#export cuda_cmd=run.pl
 
 # To run locally, use:
 #export train_cmd=run.pl
