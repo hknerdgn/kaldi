@@ -75,7 +75,6 @@ URL2="http://reverb2014.dereverberation.com/tools/REVERB_TOOLS_FOR_ASR_ver2.0.tg
 for f in $URL1 $URL2; do
     x=`basename $f`
     if [ ! -e $dir/$x ]; then
-	echo uncommenting needed here
 	wget $f -O $dir/$x || exit 1;
 	tar zxvf $dir/$x -C $dir || exit 1;
     fi
@@ -109,3 +108,4 @@ local/REVERB_mcwsjav_data_prep.sh $reverb_real_et \
 				  REVERB_Real_et et \
 				  $enhan
 
+exit 0

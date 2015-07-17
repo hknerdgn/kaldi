@@ -86,11 +86,11 @@ cat tr05_simu_${processing}_wav.scp | cut -f 1 -d" " > tr05_simu_${processing}.i
 paste -d" " tr05_simu_${processing}.ids tr05_simu_${processing}.txt | sort -k 1 > tr05_simu_${processing}.trans1
 # dt05 and et05 simulation data are generated from the CHiME 3 booth recording
 # and we use CHiME 3 dot files
-cat dt05_simu.dot | sed -e 's/(\(.*\))/\1/' | awk '{print $NF "${channel}_SIMU"}'> dt05_simu_${processing}.ids
+cat dt05_simu.dot | sed -e 's/(\(.*\))/\1/' | awk  -v channel=${channel} '{print $NF channel"_SIMU"}'> dt05_simu_${processing}.ids
 cat dt05_simu.dot | sed -e 's/(.*)//' > dt05_simu_${processing}.txt
 paste -d" " dt05_simu_${processing}.ids dt05_simu_${processing}.txt | sort -k 1 > dt05_simu_${processing}.trans1
 if $eval_flag; then
-cat et05_simu.dot | sed -e 's/(\(.*\))/\1/' | awk '{print $NF "${channel}_SIMU"}'> et05_simu_${processing}.ids
+cat et05_simu.dot | sed -e 's/(\(.*\))/\1/' | awk  -v channel=${channel} '{print $NF channel"_SIMU"}'> et05_simu_${processing}.ids
 cat et05_simu.dot | sed -e 's/(.*)//' > et05_simu_${processing}.txt
 paste -d" " et05_simu_${processing}.ids et05_simu_${processing}.txt | sort -k 1 > et05_simu_${processing}.trans1
 fi

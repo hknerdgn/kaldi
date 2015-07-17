@@ -13,9 +13,9 @@
 . ./path.sh
 
 
-do_ami=true #false #true/false
+do_ami=false #true #false #true/false
 do_chime3=false #true #true/fasle
-do_reverb=false #true #false #true/false
+do_reverb=true #false #true #false #true/false
 
 stage=0
 . utils/parse_options.sh
@@ -106,7 +106,7 @@ if [ $stage -le 0 ]; then
     fi
 fi
 
-
+wait
 # AMI models
 gmm_dir=$AMI_EXP_DIR/exp/$mic/tri4a
 dnn_dir=$AMI_EXP_DIR/exp/$mic/dnn4_pretrain-dbn_dnn
@@ -239,7 +239,7 @@ if [ $stage -le 1 ]; then
 			     utils/mkgraph.sh data/lang_ami2reverb $AMI_EXP_DIR/exp/$mic/tri4a $graph_dir
 		echo finished preparing data
 
-		
+#		dataset=data/`basename $dataset`_$enhan_reverb
 		fmllr_wrk_dir=${fmllr_decode_dir}/decode_`basename $dataset`_$enhan_reverb
 		decode_dir=${dnn_decode}/decode_tg_5k_`basename $dataset`_$enhan_reverb
 		fmllr_data_dir=${fmllr_data}/`basename $dataset`_$enhan_reverb
@@ -250,7 +250,7 @@ if [ $stage -le 1 ]; then
 					      --graph-dir $graph_dir \
 					      --gmm-dir $gmm_dir \
 					      --dnn-dir $dnn_dir \
-					      --data-dir $tgt \
+					      --data-dir $dataset \
 					      --fmllr-data-dir $fmllr_data_dir \
 					      --fmllr-wrk-dir $fmllr_wrk_dir\
 					      $decode_dir &
