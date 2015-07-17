@@ -1,0 +1,1 @@
+../../../reverb/s5/local/wsjcam0_format_data.sh

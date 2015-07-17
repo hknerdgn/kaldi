@@ -1,0 +1,1 @@
+../../../reverb/s5/local/wsj_prepare_beep_dict.sh
