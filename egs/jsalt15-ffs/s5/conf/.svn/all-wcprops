@@ -1,0 +1,23 @@
+K 25
+svn:wc:ra_dav:version-url
+V 52
+/p/kaldi/code/!svn/ver/5068/trunk/egs/reverb/s5/conf
+END
+fbank.conf
+K 25
+svn:wc:ra_dav:version-url
+V 63
+/p/kaldi/code/!svn/ver/5068/trunk/egs/reverb/s5/conf/fbank.conf
+END
+decode_dnn.config
+K 25
+svn:wc:ra_dav:version-url
+V 70
+/p/kaldi/code/!svn/ver/5068/trunk/egs/reverb/s5/conf/decode_dnn.config
+END
+mfcc.conf
+K 25
+svn:wc:ra_dav:version-url
+V 62
+/p/kaldi/code/!svn/ver/5068/trunk/egs/reverb/s5/conf/mfcc.conf
+END
