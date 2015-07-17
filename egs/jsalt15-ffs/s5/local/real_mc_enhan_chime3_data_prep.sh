@@ -80,14 +80,14 @@ for x in $list_set; do
 done
 
 #make a transcription from dot
-cat tr05_real.dot | sed -e 's/(\(.*\))/\1/' | awk '{print $NF "${channel}_REAL"}'> tr05_real_${processing}.ids
+cat tr05_real.dot | sed -e 's/(\(.*\))/\1/' | awk -v channel=${channel} '{print $NF channel"_REAL"}'> tr05_real_${processing}.ids
 cat tr05_real.dot | sed -e 's/(.*)//' > tr05_real_${processing}.txt
 paste -d" " tr05_real_${processing}.ids tr05_real_${processing}.txt | sort -k 1 > tr05_real_${processing}.trans1
-cat dt05_real.dot | sed -e 's/(\(.*\))/\1/' | awk '{print $NF "${channel}_REAL"}'> dt05_real_${processing}.ids
+cat dt05_real.dot | sed -e 's/(\(.*\))/\1/' | awk  -v channel=${channel} '{print $NF channel"_REAL"}'> dt05_real_${processing}.ids
 cat dt05_real.dot | sed -e 's/(.*)//' > dt05_real_${processing}.txt
 paste -d" " dt05_real_${processing}.ids dt05_real_${processing}.txt | sort -k 1 > dt05_real_${processing}.trans1
 if $eval_flag; then
-cat et05_real.dot | sed -e 's/(\(.*\))/\1/' | awk '{print $NF "${channel}_REAL"}'> et05_real_${processing}.ids
+cat et05_real.dot | sed -e 's/(\(.*\))/\1/' | awk  -v channel=${channel} '{print $NF channel"_REAL"}'> et05_real_${processing}.ids
 cat et05_real.dot | sed -e 's/(.*)//' > et05_real_${processing}.txt
 paste -d" " et05_real_${processing}.ids et05_real_${processing}.txt | sort -k 1 > et05_real_${processing}.trans1
 fi
