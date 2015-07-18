@@ -19,42 +19,60 @@
 # See the Apache 2 License for the specific language governing permissions and
 # limitations under the License.
 
-# End configuration section
+
+# Begin configuration section.
+resdir=
+# End configuration section.
+
 echo "$0 $@"  # Print the command line for logging
 
 [ -f ./path.sh ] && . ./path.sh; # source the path.
-[ -f ./corpus.sh ] && . ./corpus.sh;
+[ -f ./cmd.sh ] && . ./cmd.sh;
+. parse_options.sh || exit 1;
 
-nbchannel=8 #1
 
-corpusdir=/export/ws15-ffs-data/corpora/ami
-resdir=data_wpe$nbchannel
+if [ $# != 1 ]; then
+   echo "Usage: ami_wpe.sh [options] <corpus-dir> <nbmics> <testset>"
+   echo "... where <corpus-dir> is assumed to be the directory where the"
+   echo " original ami corpus is located."
+   echo "e.g.: local/wpe/ami_wpe.sh /export/AMI 8 dev"
+   echo ""
+   echo ""
+   echo "main options (for others, see top of script file)"
+   echo "  --resdir <enahnced data dir>          # directory where to save the the enhanced speech"
+   exit 1;
+fi
+
+if [ ! -z "$resdir" ]; then
+    resdir=data_wpe$nbmics
+fi
 mkdir -p $resdir
+
+corpusdir=$1
+nbmics=$2
+tset=$3
 
 arrayname=local/wpe/conf/arrayname_ami_${nbmics}ch.lst
 
-#cmd="run.pl"
-cmd="queue.pl -l arch=*64* --mem 12G -pe smp 6 -q all.q"
+cmd=$wpe_cmd
 					    
 logdir=$resdir
 echo $resdir
 
 refmic=1
-for tset in dev eval; do
-    meetings=local/split_${tset}.orig
-    for meeting in `cat $meetings`; do
-	echo $meeting
-	# Create file list
-	scp=$resdir/${tset}_${meeting}.scp
-	printf "$meeting "  > $scp
-	find $corpusdir -iname "*${meeting}*.Array1-0$refmic.wav" | sort >> $scp
+meetings=local/split_${tset}.orig
+for meeting in `cat $meetings`; do
+    echo $meeting
+    # Create file list
+    scp=$resdir/${tset}_${meeting}.scp
+    printf "$meeting "  > $scp
+    find $corpusdir -iname "*${meeting}*.Array1-0$refmic.wav" | sort >> $scp
+    
+    logname=${tset}_${meeting}
+    log=$logdir/$logname.log
+    echo $log
+    echo $cmd $log local/wpe/run_wpe_wavio.sh `pwd`/$scp $corpusdir `pwd`/$resdir $nbmics $arrayname
 	
-	logname=${tset}_${meeting}
-	log=$logdir/$logname.log
-	echo $log
-	echo $cmd $log local/wpe/run_wpe_wavio.sh `pwd`/$scp $corpusdir `pwd`/$resdir $nbchannel $arrayname
-	
-	$cmd $log local/wpe/run_wpe_wavio.sh `pwd`/$scp $corpusdir `pwd`/$resdir $nbchannel $arrayname &
-    done
-done    
-wait
+    $cmd $log local/wpe/run_wpe_wavio.sh `pwd`/$scp $corpusdir `pwd`/$resdir $nbmics $arrayname &
+done
+

@@ -10,7 +10,6 @@
 # Apache 2.0.
 
 . ./cmd.sh
-. ./path.sh
 
 # Begin configuration section.
 chime3_enh_corpus=
@@ -27,8 +26,8 @@ echo "$0 $@"  # Print the command line for logging
 if [ $# != 1 ]; then
    echo "Usage: chime3_data_prep.sh [options] <chime3-corpus>"
    echo "... where <chime3-corpus> is assumed to be the directory where the"
-   echo " original reverb corpus is located."
-   echo "e.g.: steps/reverb_data_prep.sh /export/REVERB /export/LDC/LDC93S6A/11-13.1"
+   echo " original chime3 corpus is located."
+   echo "e.g.: local/chime3_data_prep.sh /export/chime3"
    echo ""
    echo ""
    echo "main options (for others, see top of script file)"

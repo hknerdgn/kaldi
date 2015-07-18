@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# reverb_wpe.sh
+# chime3_wpe.sh
 #
-# Perform dereverberation using WPE for REVERB data
+# Perform dereverberation using WPE for CHiME3 data
 #
 # Copyright (c) 2015  Nippon Telegraph and Telephone corporation (NTT). (author: Marc Delcroix)
 #
@@ -19,38 +19,63 @@
 # See the Apache 2 License for the specific language governing permissions and
 # limitations under the License.
 
-# End configuration section
+
+# Begin configuration section.
+resdir=
+# End configuration section.
+
 echo "$0 $@"  # Print the command line for logging
 
 [ -f ./path.sh ] && . ./path.sh; # source the path.
-[ -f ./corpus.sh ] && . ./corpus.sh;
-
-nbmics=6 #1
-corpusdir=/export/ws15-ffs-data/corpora/chime3/CHiME3
-#cmd="run.pl"
-cmd="queue.pl -l arch=*64* -pe smp 5 --mem 12G -q all.q"
+[ -f ./cmd.sh ] && . ./cmd.sh;
+. parse_options.sh || exit 1;
 
 
-sets="dt05_real_noisy dt05_simu_noisy et05_real_noisy et05_simu_noisy"
+if [ $# != 1 ]; then
+   echo "Usage: ami_wpe.sh [options] <corpus-dir> <nbmics> <testset>"
+   echo "... where <corpus-dir> is assumed to be the directory where the"
+   echo " original chime3 corpus is located."
+   echo "e.g.: local/wpe/ami_wpe.sh /export/CHIME3 6 dt05"
+   echo ""
+   echo ""
+   echo "main options (for others, see top of script file)"
+   echo "  --resdir <enahnced data dir>          # directory where to save the the enhanced speech"
+   exit 1;
+fi
 
-resdir=`pwd`/data_wpe$nbmics
+if [ ! -z "$resdir" ]; then
+    resdir=data_wpe$nbmics
+fi
+mkdir -p $resdir
+
+corpusdir=$1
+nbmics=$2
+tset=$3
+
+arrayname=local/wpe/conf/arrayname_chime3_${nbmics}ch.lst
+refmic=CH1
+
+conds="bus_real caf_real ped_real str_real bus_simu caf_simu ped_simu str_simu" 
+
+cmd=$wpe_cmd
 
 logdir=$resdir
 echo $resdir
 
-arrayname=local/wpe/conf/arrayname_chime3_${nbmics}ch.lst
 
-for dataset in $sets; do
-    #scp_list=(data/$dataset*/*/wav.scp)
-
+for cond in $conds; do
+    echo $cond
+    # Create file list
+    scp=$resdir/${tset}_${cond}.scp
+    
     echo -e "Dereverberation with WPE\n"
-    for scp in `ls data/$dataset/wav.scp`; do
-	echo $scp
-	logname=$(basename $(dirname $scp))
-	log=$logdir/$logname.log
-	echo $log
-	echo $cmd $log local/wpe/run_wpe.sh `pwd`/$scp $corpusdir $resdir $nbmics $arrayname
-	
-        $cmd $log local/wpe/run_wpe.sh `pwd`/$scp $corpusdir $resdir $nbmics $arrayname &
-    done
+    printf "${tset}_${cond} " > $scp
+    find $corpusdir -iname "*${refmic}.wav" | grep ${tset}_${cond} | sort >> $scp
+    echo $scp
+    logname=${tset}_${cond}
+    log=$logdir/$logname.log
+    echo $log
+    echo $cmd $log local/wpe/run_wpe.sh `pwd`/$scp $corpusdir $resdir $nbmics $arrayname
+    
+    $cmd $log local/wpe/run_wpe.sh `pwd`/$scp $corpusdir $resdir $nbmics $arrayname &
 done

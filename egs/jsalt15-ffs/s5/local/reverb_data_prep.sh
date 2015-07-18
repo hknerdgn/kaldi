@@ -9,8 +9,6 @@
 # Copyright 2015  NTT Corporation (Author: Marc Delcroix)
 # Apache 2.0.
 
-. ./cmd.sh
-. ./path.sh
 
 # Begin configuration section.
 reverb_enh_corpus=
@@ -30,7 +28,7 @@ if [ $# != 2 ]; then
    echo " original reverb corpus is located."
    echo "... <wsj0-corpus> is assumed to be the directory where the"
    echo " original WSJ0 corpus is located."
-   echo "e.g.: steps/reverb_data_prep.sh /export/REVERB /export/LDC/LDC93S6A/11-13.1"
+   echo "e.g.: local/reverb_data_prep.sh /export/REVERB /export/LDC/LDC93S6A/11-13.1"
    echo ""
    echo ""
    echo "main options (for others, see top of script file)"

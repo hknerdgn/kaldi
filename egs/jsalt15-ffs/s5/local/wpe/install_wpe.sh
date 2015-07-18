@@ -5,9 +5,10 @@
 # It is for the moment only available on demand by e-mail
 # Send request to marc.delcroix@lab.ntt.co.jp
 
-toolname=wpe_v1.2
-wpe_tgz=/export/ws15-ffs-data/mdelcroix/tools/${toolname}.tgz
 
+wpe_tgz=$1
+toolname=`basename $wpe_tgz`
+toolname=${toolname%.tgz}
 tar zxvf $wpe_tgz -C . 
 
 cp ${toolname}/wpe.p .
