@@ -1,0 +1,1 @@
+../../../chime3/s5/local/clean_chime3_format_data.sh
