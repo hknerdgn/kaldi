@@ -13,9 +13,9 @@
 . ./path.sh
 
 
-do_ami=false #true #false #true/false
-do_chime3=true #true/fasle
-do_reverb=false #true #false #true #false #true/false
+do_ami=false #false #true #false #true/false
+do_chime3=false #true/fasle
+do_reverb=true #true #false #true #false #true/false
 
 stage=0
 . utils/parse_options.sh
@@ -31,13 +31,18 @@ enhan_reverb=noenh #isolated_beamformed_1sec_scwin_ch1_3-6
 multi_mics=false #true # true or false (true if multi-microphone output signals)
 
 # Paths with the enhanced data (change with your data)
-AMI_ENH_CORPUS=/export/ws15-ffs-data/corpora/ami/beamformed/ 
-CHIME3_ENH_CORPUS=/export/ws15-ffs-data/swatanabe/tools/kaldi-trunk/egs/chime3/s5/beamformit/enhanced_wav/isolated_beamformed_1sec_scwin_ch1_3-6/
-REVERB_ENH_CORPUS=/export/ws15-ffs-data/corpora/reverb/REVERB
+#AMI_ENH_CORPUS=/export/ws15-ffs-data/corpora/ami/beamformed/ 
+#CHIME3_ENH_CORPUS=/export/ws15-ffs-data/swatanabe/tools/kaldi-trunk/egs/chime3/s5/beamformit/enhanced_wav/isolated_beamformed_1sec_scwin_ch1_3-6/
+#REVERB_ENH_CORPUS=/export/ws15-ffs-data/corpora/reverb/REVERB
 
 #AMI_ENH_CORPUS=/export/ws15-ffs-data/mdelcroix/data/ami/data_wpe8
 #CHIME3_ENH_CORPUS=/export/ws15-ffs-data/mdelcroix/data/chime3/data_wpe6/data/audio/16kHz/isolated
 #REVERB_ENH_CORPUS=/export/ws15-ffs-data/mdelcroix/data/REVERB/data_wpe8
+
+AMI_ENH_CORPUS=data_wpe8
+CHIME3_ENH_CORPUS=data_wpe6
+REVERB_ENH_CORPUS=data_wpe8
+
 
 AMI_CORPUS=/export/ws15-ffs-data/corpora/ami
 CHIME3_CORPUS=/export/ws15-ffs-data/corpora/chime3/CHiME3
@@ -62,32 +67,34 @@ if [ $stage -le 0 ]; then
     pushd local/wpe/
     bash install_wpe.sh /export/ws15-ffs-data/mdelcroix/tools/wpe_v1.2.tgz
     popd
-    exit
+
     if [ $do_ami == true ];then
 	echo Performing WPE for AMI
-	bash local/wpe/ami_wpe.sh --resdir $AMI_ENH_CORPUS\
-	      $AMI_CORPUS 8 dev
+	bash local/wpe/ami_wpe.sh  $AMI_CORPUS 8 dev
+# --resdir $AMI_ENH_CORPUS\
 
-	bash local/wpe/ami_wpe.sh --resdir $AMI_ENH_CORPUS\
-	      $AMI_CORPUS 8 eval
+	bash local/wpe/ami_wpe.sh $AMI_CORPUS 8 eval
+# --resdir $AMI_ENH_CORPUS\
     fi
 
     if [ $do_chime3 == true ];then
 	echo Performing WPE for CHiME3
-	bash local/wpe/chime3_wpe.sh --resdir $CHIME3_ENH_CORPUS\
-	      $CHIME3_CORPUS 6 dt05
+	bash local/wpe/chime3_wpe.sh $CHIME3_CORPUS 6 dt05
+#--resdir $CHIME3_ENH_CORPUS\
 
-	bash local/wpe/ami_wpe.sh --resdir $CHIME3_ENH_CORPUS\
-	      $CHIME3_CORPUS 6 et05
+	bash local/wpe/chime3_wpe.sh $CHIME3_CORPUS 6 et05
+#--resdir $CHIME3_ENH_CORPUS\
 
     fi
     
     if [ $do_reverb == true ];then
 	echo Performing WPE for REVERB
-	bash local/wpe/reverb_wpe.sh
+	bash local/wpe/reverb_wpe.sh $REVERB_CORPUS 8 dt RealData
+	bash local/wpe/reverb_wpe.sh $REVERB_CORPUS 8 et RealData
     fi
 fi
 wait
+
 
 # Beamforming with beaformit 
 if [ $stage -le 1 ]; then

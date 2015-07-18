@@ -31,10 +31,12 @@ echo "$0 $@"  # Print the command line for logging
 . parse_options.sh || exit 1;
 
 
-if [ $# != 1 ]; then
-   echo "Usage: ami_wpe.sh [options] <corpus-dir> <nbmics> <testset>"
+if [ $# != 3 ]; then
+   echo "Usage: ami_wpe.sh [options] <corpus-dir> <nbmics> <tset>"
    echo "... where <corpus-dir> is assumed to be the directory where the"
    echo " original ami corpus is located."
+   echo "... <nbmics> is the number of microphones used for dereverberation"
+   echo "... <tset> is the target test set (dev/eval)"
    echo "e.g.: local/wpe/ami_wpe.sh /export/AMI 8 dev"
    echo ""
    echo ""
@@ -43,14 +45,15 @@ if [ $# != 1 ]; then
    exit 1;
 fi
 
-if [ ! -z "$resdir" ]; then
-    resdir=data_wpe$nbmics
-fi
-mkdir -p $resdir
 
 corpusdir=$1
 nbmics=$2
 tset=$3
+
+if [ -z "$resdir" ]; then
+    resdir=data_wpe$nbmics
+fi
+mkdir -p $resdir
 
 arrayname=local/wpe/conf/arrayname_ami_${nbmics}ch.lst
 

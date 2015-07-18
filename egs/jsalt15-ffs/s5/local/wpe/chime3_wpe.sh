@@ -31,10 +31,12 @@ echo "$0 $@"  # Print the command line for logging
 . parse_options.sh || exit 1;
 
 
-if [ $# != 1 ]; then
+if [ $# != 3 ]; then
    echo "Usage: ami_wpe.sh [options] <corpus-dir> <nbmics> <testset>"
    echo "... where <corpus-dir> is assumed to be the directory where the"
    echo " original chime3 corpus is located."
+   echo "... <nbmics> is the number of microphones used for dereverberation"
+   echo "... <tset> is the target test set (dev/eval)"
    echo "e.g.: local/wpe/ami_wpe.sh /export/CHIME3 6 dt05"
    echo ""
    echo ""
@@ -43,14 +45,15 @@ if [ $# != 1 ]; then
    exit 1;
 fi
 
-if [ ! -z "$resdir" ]; then
+corpusdir=$1
+nbmics=$2
+tset=$3
+
+if [ -z "$resdir" ]; then
     resdir=data_wpe$nbmics
 fi
 mkdir -p $resdir
 
-corpusdir=$1
-nbmics=$2
-tset=$3
 
 arrayname=local/wpe/conf/arrayname_chime3_${nbmics}ch.lst
 refmic=CH1
@@ -67,10 +70,11 @@ for cond in $conds; do
     echo $cond
     # Create file list
     scp=$resdir/${tset}_${cond}.scp
-    
+    rm -f $scp
     echo -e "Dereverberation with WPE\n"
-    printf "${tset}_${cond} " > $scp
-    find $corpusdir -iname "*${refmic}.wav" | grep ${tset}_${cond} | sort >> $scp
+    for file in `find $corpusdir -iname "*${refmic}.wav" | grep ${tset}_${cond} | sort`; do
+	echo "${tset}_${cond} $file" >> $scp
+    done
     echo $scp
     logname=${tset}_${cond}
     log=$logdir/$logname.log
