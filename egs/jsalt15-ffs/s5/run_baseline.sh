@@ -21,12 +21,9 @@ stage=0
 . utils/parse_options.sh
 
 # Keyword describing enhancement
-enhan_ami=mdm8
-enhan_chime3=isolated_beamformed_1sec_scwin_ch1_3-6 #noisy
-enhan_reverb=noenh #isolated_beamformed_1sec_scwin_ch1_3-6
-#enhan_ami=wpe8
-#enhan_chime3=wpe6
-#enhan_reverb=wpe8
+#enhan_ami=mdm8
+#enhan_chime3=isolated_beamformed_1sec_scwin_ch1_3-6 #noisy
+#enhan_reverb=noenh #isolated_beamformed_1sec_scwin_ch1_3-6
 
 multi_mics=false #true # true or false (true if multi-microphone output signals)
 
@@ -39,9 +36,6 @@ multi_mics=false #true # true or false (true if multi-microphone output signals)
 #CHIME3_ENH_CORPUS=/export/ws15-ffs-data/mdelcroix/data/chime3/data_wpe6/data/audio/16kHz/isolated
 #REVERB_ENH_CORPUS=/export/ws15-ffs-data/mdelcroix/data/REVERB/data_wpe8
 
-AMI_ENH_CORPUS=data_wpe8
-CHIME3_ENH_CORPUS=data_wpe6
-REVERB_ENH_CORPUS=data_wpe8
 
 
 AMI_CORPUS=/export/ws15-ffs-data/corpora/ami
@@ -57,6 +51,14 @@ mic=mdm8 #ihm ##sdm1 not trained
 AMI_EXP_DIR=/export/ws15-ffs-data/swatanabe/tools/kaldi-trunk/egs/ami/s5
 
 # Dereverberation with WPE
+enhan_ami=wpe8
+enhan_chime3=wpe6
+enhan_reverb=wpe8
+
+AMI_ENH_CORPUS=data_wpe8
+CHIME3_ENH_CORPUS=data_wpe6
+REVERB_ENH_CORPUS=data_wpe8
+
 if [ $stage -le 0 ]; then
 
     # install wpe dereverebeartion package
@@ -71,20 +73,13 @@ if [ $stage -le 0 ]; then
     if [ $do_ami == true ];then
 	echo Performing WPE for AMI
 	bash local/wpe/ami_wpe.sh  $AMI_CORPUS 8 dev
-# --resdir $AMI_ENH_CORPUS\
-
 	bash local/wpe/ami_wpe.sh $AMI_CORPUS 8 eval
-# --resdir $AMI_ENH_CORPUS\
     fi
 
     if [ $do_chime3 == true ];then
 	echo Performing WPE for CHiME3
 	bash local/wpe/chime3_wpe.sh $CHIME3_CORPUS 6 dt05
-#--resdir $CHIME3_ENH_CORPUS\
-
 	bash local/wpe/chime3_wpe.sh $CHIME3_CORPUS 6 et05
-#--resdir $CHIME3_ENH_CORPUS\
-
     fi
     
     if [ $do_reverb == true ];then
@@ -97,9 +92,44 @@ wait
 
 
 # Beamforming with beaformit 
+enhan_ami=wpe8_bf
+enhan_chime3=wpe6_bf
+enhan_reverb=wpe8_bf
 if [ $stage -le 1 ]; then
 
+    pushd local/beanformit
+    bash install_beamformit.sh
+    popd
+    
+    if [ $do_ami == true ];then
+	AMI_BF_IN_CORPUS=data_wpe8_bf
+	echo Performing beamformit for AMI
+	bash local/beanformit/ami_beamformit.sh $AMI_BF_IN_CORPUS $enhan_ami
+    fi
+
+    if [ $do_chime3 == true ];then
+	CHIME3_BF_IN_CORPUS=data_wpe6_bf
+	echo Performing BEAMFORMIT for CHiME3
+	bash local/beamformit/chime3_beamformit.sh $CHIME3_BF_IN_CORPUS \
+	     $enhan_chime3 dt05
+	bash local/beamformit/chime3_beamformit.sh $CHIME3_BF_IN_CORPUS \
+	     $enhan_chime3 et05
+    fi
+    
+    if [ $do_reverb == true ];then
+	REVERB_BF_IN_CORPUS=data_wpe8_bf
+	echo Performing BEAMFORMIT for REVERB
+	bash local/beamformit/reverb_beamformit.sh $REVERB_BF_IN_CORPUS \
+	     $enhan_reverb dt RealData
+	bash local/beamformit/reverb_beamformit.sh $REVERB_BF_IN_CORPUS \
+	     $enhan_reverb et RealData
+    fi
 fi
+
+AMI_ENH_CORPUS=data_wpe8_bf
+CHIME3_ENH_CORPUS=data_wpe6_bf
+REVERB_ENH_CORPUS=data_wpe8_bf
+
 
 # Data preparation for decoding
 if [ $stage -le 2 ]; then
