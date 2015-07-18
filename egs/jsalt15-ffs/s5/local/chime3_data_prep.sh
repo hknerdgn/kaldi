@@ -15,15 +15,14 @@
 # Begin configuration section.
 chime3_enh_corpus=
 enhan=noisy
-channel=.CH5
+channel= #.CH5
 # End configuration section.
 
 echo "$0 $@"  # Print the command line for logging
-echo in
+
 [ -f ./path.sh ] && . ./path.sh; # source the path.
 . parse_options.sh || exit 1;
 
-echo $#
 
 if [ $# != 1 ]; then
    echo "Usage: chime3_data_prep.sh [options] <chime3-corpus>"
@@ -57,14 +56,24 @@ local/wsj_prepare_dict.sh || exit 1;
 utils/prepare_lang.sh data/local/dict "<SPOKEN_NOISE>" data/local/lang_tmp data/lang || exit 1;
 local/clean_chime3_format_data.sh || exit 1;
 
-
 # Create scp files for chime3 task for enhanced speech
-local/real_mc_enhan_chime3_data_prep.sh $chime3_corpus \
-					$chime3_enh_corpus\
-					$enhan\
-					$channel || exit 1;
+if [ ! -z "$channel" ]; then
+    local/real_mc_enhan_chime3_data_prep.sh $chime3_corpus \
+					    $chime3_enh_corpus\
+					    $enhan\
+					    --channel $channel || exit 1;
+    
+    local/simu_mc_enhan_chime3_data_prep.sh $chime3_corpus \
+					    $chime3_enh_corpus\
+					    $enhan\
+					    --channel $channel || exit 1;
+else
+    local/real_mc_enhan_chime3_data_prep.sh $chime3_corpus \
+					    $chime3_enh_corpus\
+					    $enhan || exit 1;
+    
+    local/simu_mc_enhan_chime3_data_prep.sh $chime3_corpus \
+					    $chime3_enh_corpus\
+					    $enhan || exit 1;
 
-local/simu_mc_enhan_chime3_data_prep.sh $chime3_corpus \
-					$chime3_enh_corpus\
-					$enhan\
-					$channel || exit 1;
+fi
