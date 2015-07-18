@@ -14,26 +14,32 @@
 
 
 do_ami=false #true #false #true/false
-do_chime3=false #true #true/fasle
-do_reverb=true #false #true #false #true/false
+do_chime3=true #true/fasle
+do_reverb=false #true #false #true #false #true/false
 
 stage=0
 . utils/parse_options.sh
 
 # Keyword describing enhancement
-#enhan_ami=mdm8
-#enhan_chime3=isolated_beamformed_1sec_scwin_ch1_3-6 #noisy
-#enhan_reverb=isolated_beamformed_1sec_scwin_ch1_3-6
-enhan_ami=wpe8
-enhan_chime3=wpe6
-enhan_reverb=wpe8
+enhan_ami=mdm8
+enhan_chime3=isolated_beamformed_1sec_scwin_ch1_3-6 #noisy
+enhan_reverb=noenh #isolated_beamformed_1sec_scwin_ch1_3-6
+#enhan_ami=wpe8
+#enhan_chime3=wpe6
+#enhan_reverb=wpe8
 
-multi_mics=true # true or false (true if multi-microphone output signals)
+multi_mics=false #true # true or false (true if multi-microphone output signals)
 
 # Paths with the enhanced data (change with your data)
-AMI_ENH_CORPUS=/export/ws15-ffs-data/mdelcroix/data/ami/data_wpe8
-CHIME3_ENH_CORPUS=/export/ws15-ffs-data/mdelcroix/data/chime3/data_wpe6
-REVERB_ENH_CORPUS=/export/ws15-ffs-data/mdelcroix/data/REVERB/data_wpe8
+AMI_ENH_CORPUS=/export/ws15-ffs-data/corpora/ami/beamformed/ #export/ws15-ffs-data/corpora/reverb/REVERB
+#/export/ws15-ffs-data/mdelcroix/data/ami/data_wpe8
+CHIME3_ENH_CORPUS=/export/ws15-ffs-data/swatanabe/tools/kaldi-trunk/egs/chime3/s5/beamformit/enhanced_wav/isolated_beamformed_1sec_scwin_ch1_3-6/
+#/export/ws15-ffs-data/swatanabe/tools/kaldi-trunk/egs/chime3/s5/beamformit/enhanced_wav/
+#CHIME3_ENH_CORPUS=/export/ws15-ffs-data/mdelcroix/data/chime3/data_wpe6/data/audio/16kHz/isolated
+REVERB_ENH_CORPUS=/export/ws15-ffs-data/corpora/reverb/REVERB
+#/export/ws15-ffs-data/mdelcroix/data/REVERB/data_wpe8
+
+
 
 CHIME3_CORPUS=/export/ws15-ffs-data/corpora/chime3/CHiME3
 REVERB_CORPUS=/export/ws15-ffs-data/corpora/reverb/REVERB
@@ -43,7 +49,6 @@ WSJ0_CORPUS=/export/ws15-ffs-data/corpora/LDC/LDC93S6A/11-13.1
 
 # Sets the AMI model to use
 mic=mdm8 #ihm ##sdm1 not trained
-
 
 #AMI_EXP_DIR=`pwd`/../../ami/s5
 AMI_EXP_DIR=/export/ws15-ffs-data/swatanabe/tools/kaldi-trunk/egs/ami/s5
@@ -58,28 +63,34 @@ if [ $stage -le 0 ]; then
 	
 	if [[ $multi_mics == true ]];then
 	    micid=1
-	    local/ami_mc_enh_scoring_data_prep.sh $AMI_ENH_CORPUS $micid dev ami_$enhan_ami
-	    local/ami_mc_enh_scoring_data_prep.sh $AMI_ENH_CORPUS $micid eval ami_$enhan_ami
+	    local/ami_mc_enh_scoring_data_prep.sh $AMI_ENH_CORPUS $micid dev $enhan_ami
+	    local/ami_mc_enh_scoring_data_prep.sh $AMI_ENH_CORPUS $micid eval $enhan_ami
 	else
-	    local/ami_mdm_scoring_data_prep.sh $AMI_ENH_CORPUS ami_$enhan_ami dev
-	    local/ami_mdm_scoring_data_prep.sh $AMI_ENH_CORPUS ami_$enhan_ami eval
+	    local/ami_mdm_scoring_data_prep.sh $AMI_ENH_CORPUS $enhan_ami dev
+	    local/ami_mdm_scoring_data_prep.sh $AMI_ENH_CORPUS $enhan_ami eval
 	fi
     fi
     if [[ $do_chime3 == true ]]; then
 
+
 	# process for distant talking speech for real and simulation data
-	if [[ $multi_mics == true ]]; then
-	    channel=.CH5
-	else
-	    channel=
-	fi
-	echo chime3 data preparation
 
 	# Does data preparation but not feature extraction
-	local/chime3_data_prep.sh --chime3_enh_corpus $CHIME3_ENH_CORPUS \
+	if [[ $multi_mics == true ]]; then
+	    channel=.CH5
+	    local/chime3_data_prep.sh --chime3_enh_corpus $CHIME3_ENH_CORPUS \
 				  --enhan $enhan_chime3 \
 				  --channel $channel \
 				  $CHIME3_CORPUS
+
+	else
+	    
+	    local/chime3_data_prep.sh --chime3_enh_corpus $CHIME3_ENH_CORPUS \
+				  --enhan $enhan_chime3 \
+				  $CHIME3_CORPUS
+	fi
+	echo chime3 data preparation
+
 	
 
 	# making HCLG.fst using CHiME3 LM
@@ -106,7 +117,7 @@ if [ $stage -le 0 ]; then
     fi
 fi
 
-wait
+
 # AMI models
 gmm_dir=$AMI_EXP_DIR/exp/$mic/tri4a
 dnn_dir=$AMI_EXP_DIR/exp/$mic/dnn4_pretrain-dbn_dnn
@@ -116,10 +127,6 @@ fmllr_data=data-fmllr-tri4
 fmllr_decode_dir=exp/$mic/tri4a
 dnn_decode=exp/$mic/dnn4_pretrain-dbn_dnn
 
-
-fmllr_data=data_re2-fmllr-tri4
-fmllr_decode_dir=exp_re2/$mic/tri4a
-dnn_decode=exp_re2/$mic/dnn4_pretrain-dbn_dnn
 
 if [ $stage -le 1 ]; then
 
@@ -140,9 +147,9 @@ if [ $stage -le 1 ]; then
     
     ###############
     ###############
+    # AMI task
     if [ $do_ami == true ]; then
 
-	# AMI task
 	echo decode AMI task
 	
 	final_lm=`cat $AMI_EXP_DIR/data/local/lm/final_lm`
@@ -151,22 +158,10 @@ if [ $stage -le 1 ]; then
 	graph_dir=$AMI_EXP_DIR/exp/$mic/tri4a/graph_${lm_suffix}
 	
 	for tset in dev eval; do
-	    # AMI dev set
-	    #if [ $beamfomit ]; then
-	    #    src=$AMI_EXP_DIR/data/mdm8/$tset
-	    #else
-	    #    src=$AMI_EXP_DIR/data/sdm1/$tset
-	    #fi
-	    #tgt=data/$enhan_ami/$tset
-	    #utils/copy_data_dir.sh $src $tgt ; rm $tgt/{feats,cmvn}.scp
-	    # modifying path in wav.scp
-	    #mv  $tgt/wav.scp  $tgt/wav_orig.scp 
-	    #cat $tgt/wav_orig.scp | sed  "s#$AMI_ORIG_DATA#$AMI_ENH_DATA#" > $tgt/wav.scp
-	    
-	    #echo finished preparing data
-	    tgt=data/ami_$enhan_ami/$tset
+
+	    tgt=data/$enhan_ami/$tset
 	    fmllr_wrk_dir=${fmllr_decode_dir}/decode_${tset}_$enhan_ami
-	    decode_dir=${dnn_decode}/decode_${tset}_${lm_suffix}
+	    decode_dir=${dnn_decode}/decode_${tset}_${lm_suffix}_${enhan_ami}
 	    fmllr_data_dir=${fmllr_data}/$enhan_ami/${tset}
 	    
 	    
@@ -191,7 +186,6 @@ if [ $stage -le 1 ]; then
 	
 	lm_suffix=lm_tgpr_5k
 	graph_dir=${fmllr_decode_dir}/graph_${lm_suffix}
-	
 	
 	
 	# Making decoding graph
@@ -225,7 +219,6 @@ if [ $stage -le 1 ]; then
     if [ $do_reverb == true ]; then
 	
 	echo decode REVERB task
-	
     
 	for tset in dt et; do
 	    for dataset in `ls -d data/REVERB_Real_${tset}_${enhan_reverb}/RealData_${tset}*` ; do
@@ -239,7 +232,6 @@ if [ $stage -le 1 ]; then
 			     utils/mkgraph.sh data/lang_ami2reverb $AMI_EXP_DIR/exp/$mic/tri4a $graph_dir
 		echo finished preparing data
 
-#		dataset=data/`basename $dataset`_$enhan_reverb
 		fmllr_wrk_dir=${fmllr_decode_dir}/decode_`basename $dataset`_$enhan_reverb
 		decode_dir=${dnn_decode}/decode_tg_5k_`basename $dataset`_$enhan_reverb
 		fmllr_data_dir=${fmllr_data}/`basename $dataset`_$enhan_reverb

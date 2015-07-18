@@ -11,25 +11,34 @@ set -e
 # Modified from the script for CHiME3 baseline
 # Shinji Watanabe 02/13/2015
 
-if [ $# -lt 3 ]; then
+# Begin configuration section.
+channel=
+# End configuration section.
+
+
+echo "$0 $@"  # Print the command line for logging
+
+[ -f ./path.sh ] && . ./path.sh; # source the path.
+. parse_options.sh || exit 1;
+
+if [ $# != 3 ]; then
   printf "\nUSAGE: %s <corpus-directory>\n\n" `basename $0`
   echo "The argument should be a the top-level CHiME3 directory."
   echo "It is assumed that there will be a 'data' subdirectory"
   echo "within the top-level corpus directory."
+  echo " --channel                          # reference channel used when multi-channel enhancement output exist"
   exit 1;
 fi
 
-echo "$0 $@"  # Print the command line for logging
 
 orig_corpus_dir=$1
 enh_corpus_dir=$2
 processing=$3
-channel=$4
 
 eval_flag=true # make it true when the evaluation data are released
 
-audio_dir=$1/data/audio/16kHz/isolated
-trans_dir=$1/data/transcriptions
+audio_dir=$enh_corpus_dir 
+trans_dir=$orig_corpus_dir/data/transcriptions
 
 echo "extract 5th channel (CH5.wav, the center bottom edge in the front of the tablet) for noisy data"
 
