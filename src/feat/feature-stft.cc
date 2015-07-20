@@ -25,8 +25,6 @@ namespace kaldi {
 
 Stft::Stft(const StftOptions &opts)
     : opts_(opts), feature_window_function_(opts.frame_opts), srfft_(NULL) {
-    if (opts.energy_floor > 0.0)
-        log_energy_floor_ = log(opts.energy_floor);
 
     int32 padded_window_size = opts.frame_opts.PaddedWindowSize();
     if ((padded_window_size & (padded_window_size-1)) == 0)  // Is a power of two
@@ -51,14 +49,14 @@ void Stft::Compute(const VectorBase<BaseFloat> &wave,
     else if (opts_.output_type == "phase")
         cols_out=cols_out/2-1;
     if (opts_.output_type != "phase") {
-        if (opt_.cut_dc)
+        if (opts_.cut_dc)
             cols_out--;
-        if (opt_.cut_nyquist)
+        if (opts_.cut_nyquist)
             cols_out--;
     }
-    if (opt_.add_log_energy)
+    if (opts_.add_log_energy)
         cols_out++;
-    if (opt_.add_amplitude_pnorm)
+    if (opts_.add_amplitude_pnorm)
         cols_out++;
 
     if (rows_out == 0)
@@ -140,7 +138,7 @@ void Stft::Compute(const VectorBase<BaseFloat> &wave,
         // normalize amplitudes if needed
 	// except DC and Nyquist
 
-        if (opts_.add_amplitude_norm || opts_.normalize_amplitude) {
+        if (opts_.add_amplitude_pnorm || opts_.normalize_amplitude) {
             if (opts_.normalization_param == 0 )
                 pnorm=spectrum1.Max();
             else
@@ -152,40 +150,40 @@ void Stft::Compute(const VectorBase<BaseFloat> &wave,
 
         // start forming output
         Vector<BaseFloat> temp(cols_out);
-        int k=0;
+        int kk=0;
 
         if (opts_.output_type == "phase") {
             for (int i=0; i< spectrum2.Dim(); i++)
-                temp(k++)=spectrum2(i);
+                temp(kk++)=spectrum2(i);
         } else {
             if (!opts_.cut_dc)
-                temp(k++)=window(0);
+                temp(kk++)=window(0);
             if (!opts_.cut_nyquist)
-                temp(k++)=window(1);
+                temp(kk++)=window(1);
 
             if (opts_.output_type == "amplitude") {
                 for (int i=0; i< spectrum1.Dim(); i++)
-                    temp(k++)=spectrum1(i);
+                    temp(kk++)=spectrum1(i);
             } else { // write both spectra
                 if (opts_.block_output) {
                     for (int i=0; i< spectrum1.Dim(); i++)
-                        temp(k++)=spectrum1(i);
+                        temp(kk++)=spectrum1(i);
                     for (int i=0; i< spectrum2.Dim(); i++)
-                        temp(k++)=spectrum2(i);
+                        temp(kk++)=spectrum2(i);
                 }
                 else {
                     for (int i=0; i< spectrum1.Dim(); i++) {
-                        temp(k++)=spectrum1(i);
-                        temp(k++)=spectrum2(i);
+                        temp(kk++)=spectrum1(i);
+                        temp(kk++)=spectrum2(i);
                     }
                 }
             }
         }
 
-        if (opts_.add_amplitude_norm)
-            temp(k++)=pnorm;
+        if (opts_.add_amplitude_pnorm)
+            temp(kk++)=pnorm;
         if (opts_.add_log_energy)
-            temp(k++)=log_energy;
+            temp(kk++)=log_energy;
 
         // Output buffers
         SubVector<BaseFloat> this_output(output->Row(r));

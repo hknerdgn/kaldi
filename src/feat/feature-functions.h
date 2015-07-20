@@ -107,7 +107,7 @@ struct FrameExtractionOptions {
                  "Subtract mean from waveform on each frame");
     po->Register("dither", &dither, "Dithering constant (0.0 means no dither)");
     po->Register("window-type", &window_type, "Type of window "
-                 "(\"hamming\"|\"hanning\"|\"povey\"|\"rectangular\")");
+                 "(\"hamming\"|\"hanning\"|\"sine\"|\"povey\"|\"rectangular\")");
     po->Register("round-to-power-of-two", &round_to_power_of_two,
                  "If true, round window size to power of two.");
     po->Register("snip-edges", &snip_edges,

@@ -72,6 +72,8 @@ FeatureWindowFunction::FeatureWindowFunction(const FrameExtractionOptions &opts)
     BaseFloat i_fl = static_cast<BaseFloat>(i);
     if (opts.window_type == "hanning") {
       window(i) = 0.5  - 0.5*cos(M_2PI * i_fl / (frame_length-1));
+    } else if (opts.window_type == "sine") { // this is square root of Hanning window sugested for perfect reconstruction
+      window(i) = sin(M_PI * i_fl / (frame_length-1));
     } else if (opts.window_type == "hamming") {
       window(i) = 0.54 - 0.46*cos(M_2PI * i_fl / (frame_length-1));
     } else if (opts.window_type == "povey") {  // like hamming but goes to zero at edges.

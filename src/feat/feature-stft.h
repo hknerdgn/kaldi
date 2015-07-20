@@ -60,7 +60,7 @@ struct StftOptions {
     amplitude_nonlinearity("none"),
     amplitude_nonlinearity_param(10),
     block_output(false),
-    add_amplitude_norm(false),
+    add_amplitude_pnorm(false),
     normalize_amplitude(false),
     normalization_param(1.0) { }
     

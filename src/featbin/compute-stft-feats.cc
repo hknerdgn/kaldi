@@ -63,7 +63,7 @@ int main(int argc, char *argv[]) {
 
     std::string output_wspecifier = po.GetArg(2);
 
-    Spectrogram spec(spec_opts);
+    Stft stft(stft_opts);
 
     SequentialTableReader<WaveHolder> reader(wav_rspecifier);
     BaseFloatMatrixWriter kaldi_writer;  // typedef to TableWriter<something>.
@@ -110,16 +110,16 @@ int main(int argc, char *argv[]) {
         }
       }
 
-      if (spec_opts.frame_opts.samp_freq != wave_data.SampFreq())
+      if (stft_opts.frame_opts.samp_freq != wave_data.SampFreq())
         KALDI_ERR << "Sample frequency mismatch: you specified "
-                  << spec_opts.frame_opts.samp_freq << " but data has "
+                  << stft_opts.frame_opts.samp_freq << " but data has "
                   << wave_data.SampFreq() << " (use --sample-frequency "
                   << "option).  Utterance is " << utt;
 
       SubVector<BaseFloat> waveform(wave_data.Data(), this_chan);
       Matrix<BaseFloat> features;
       try {
-        spec.Compute(waveform, &features, NULL);
+        stft.Compute(waveform, &features, NULL);
       } catch (...) {
         KALDI_WARN << "Failed to compute features for utterance "
                    << utt;
@@ -138,7 +138,7 @@ int main(int argc, char *argv[]) {
         std::pair<Matrix<BaseFloat>, HtkHeader> p;
         p.first.Resize(features.NumRows(), features.NumCols());
         p.first.CopyFromMat(features);
-        int32 frame_shift = spec_opts.frame_opts.frame_shift_ms * 10000;
+        int32 frame_shift = stft_opts.frame_opts.frame_shift_ms * 10000;
         HtkHeader header = {
           features.NumRows(),
           frame_shift,
