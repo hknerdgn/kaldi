@@ -1,0 +1,1 @@
+../../../chime3/s5/local/find_noisy_transcripts.pl

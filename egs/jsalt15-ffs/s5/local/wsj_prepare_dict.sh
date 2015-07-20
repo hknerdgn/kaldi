@@ -1,0 +1,1 @@
+../../../chime3/s5/local/wsj_prepare_dict.sh
