@@ -1,6 +1,7 @@
 // featbin/subsample-feats.cc
 
 // Copyright 2012-2014  Johns Hopkins University (author: Daniel Povey)
+// 2015 Hakan Erdogan
 
 // See ../../COPYING for clarification regarding multiple authors
 //
@@ -33,84 +34,78 @@ int main(int argc, char *argv[]) {
     using namespace std;
     
     const char *usage =
-        "Replicates or up-samples fixed number of features per utterance as many times as given in the second argument per utterance."
-        "Second argument is an scp/ark file which has the number of repetitions (as int32) per utterance."
+        "Replicates fixed number of features per utterance as many times as given in the second argument per utterance. "
+        "Second argument is an scp/ark file which has the number of repetitions (as int32) per utterance. "
         "Second argument can be obtained using feat-len command on a feats.scp/ark file."
         "\n"
-        "Usage: replicate-fixedlength-feats <in-rspecifier1> <in-rspecifier2> <out-wspecifier>\n"
+        "Usage: replicate-fixedlength-feats <rspecifier> <featlen-rspecifier> <out-wspecifier>\n"
         "  e.g. replicate-fixedlength-feats ark:- ark:- ark:-\n";
     
     ParseOptions po(usage);
     
     int32 n = 1, offset = 0;
 
-    po.Register("n", &n, "Take every n'th feature, for this value of n"
-                "(with negative value, repeats each feature n times)");
-    po.Register("offset", &offset, "Start with the feature with this offset, "
-                "then take every n'th feature.");
+    po.Register("n", &n, "Take n features in the first file from the start or from the offset");
+    po.Register("offset", &offset, "Start with the feature at this offset, "
+                "then take n features.");
 
-    KALDI_ASSERT(n != 0);
-    if (n < 0)
-      KALDI_ASSERT(offset == 0 &&
-                   "--offset option cannot be used with negative n.");
+    KALDI_ASSERT(n > 0);
+    KALDI_ASSERT(offset >= 0);
     
     po.Read(argc, argv);
     
-    if (po.NumArgs() != 2) {
+    if (po.NumArgs() != 3) {
       po.PrintUsage();
       exit(1);
-    }    
+    } 
 
     string rspecifier = po.GetArg(1);
-    string wspecifier = po.GetArg(2);
+    string featlen_rspecifier = po.GetArg(2);
+    string wspecifier = po.GetArg(3);
     
     SequentialBaseFloatMatrixReader feat_reader(rspecifier);
+
+    SequentialInt32Reader featlen_reader(featlen_rspecifier);
+
     BaseFloatMatrixWriter feat_writer(wspecifier);
 
     int32 num_done = 0, num_err = 0;
     int64 frames_in = 0, frames_out = 0;
     
     // process all keys
-    for (; !feat_reader.Done(); feat_reader.Next()) {
+    for (; !feat_reader.Done() && !featlen_reader.Done(); feat_reader.Next(), featlen_reader.Next()) {
+      int32 num_frames = featlen_reader.Value();
       std::string utt = feat_reader.Key();
+      std::string utt_len = featlen_reader.Key();
       const Matrix<BaseFloat> feats(feat_reader.Value());
 
-
-      if (n > 0) {
-        // This code could, of course, be much more efficient; I'm just
-        // keeping it simple.
-        int32 num_indexes = 0;
-        for (int32 k = offset; k < feats.NumRows(); k += n)
-          num_indexes++; // k is the index.
-
-        frames_in += feats.NumRows();
-        frames_out += num_indexes;
-      
-        if (num_indexes == 0) {
-          KALDI_WARN << "For utterance " << utt << ", output would have no rows, "
-                     << "producing no output.";
-          num_err++;
-          continue;
-        }
-        Matrix<BaseFloat> output(num_indexes, feats.NumCols());
-        int32 i = 0;
-        for (int32 k = offset; k < feats.NumRows(); k += n, i++) {
-          SubVector<BaseFloat> src(feats, k), dest(output, i);
-          dest.CopyFromVec(src);
-        }
-        KALDI_ASSERT(i == num_indexes);
-        feat_writer.Write(utt, output);
-        num_done++;
-      } else {
-        int32 repeat = -n;
-        Matrix<BaseFloat> output(feats.NumRows() * repeat, feats.NumCols());
-        for (int32 i = 0; i < output.NumRows(); i++)
-          output.Row(i).CopyFromVec(feats.Row(i / repeat));
-        frames_in += feats.NumRows();
-        frames_out += feats.NumRows() * repeat;
-        feat_writer.Write(utt, output);        
-        num_done++;
+      if ( utt != utt_len) {
+	KALDI_WARN << "Mismatched utterance Id " << utt << ", " << utt_len 
+                  << "ignoring second one, using first one!!!";
       }
+      if (feats.NumRows() < offset+n) {
+        KALDI_WARN << "For utterance " << utt << ", output would have no rows, "
+                  << "producing no output.";
+        num_err++;
+        continue;
+      }
+
+      Matrix<BaseFloat> output(num_frames, feats.NumCols());
+
+      frames_in += feats.NumRows();
+      frames_out += num_frames;
+      int32 k=0;
+      int32 j=0;
+      
+      while(k < num_frames) {
+	if (j>n) j=0; 
+	int32 i = offset + j;
+        SubVector<BaseFloat> src(feats, i), dest(output, k);
+        dest.CopyFromVec(src);
+	j++; k++;
+      }
+      feat_writer.Write(utt, output);
+      num_done++;
     }
     KALDI_LOG << "Processed " << num_done << " feature matrices; " << num_err
               << " with errors.";

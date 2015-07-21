@@ -203,6 +203,7 @@
 /src/featbin/select-feats
 /src/featbin/subsample-feats
 /src/featbin/wav-to-duration
+/src/featbin/replicate-fixedlength-feats
 
 # /src/fgmmbin/
 /src/fgmmbin/.depend.mk
