@@ -44,6 +44,7 @@ void Stft::Compute(const VectorBase<BaseFloat> &wave,
     // Get dimensions of output features
     int32 rows_out = NumFrames(wave.Dim(), opts_.frame_opts);
     int32 cols_out = opts_.frame_opts.PaddedWindowSize();
+    if (opts_.output_layout == "default" || opts_.output_layout == "block") {
     if (opts_.output_type == "amplitude")
         cols_out=cols_out/2+1;
     else if (opts_.output_type == "phase")
@@ -54,6 +55,20 @@ void Stft::Compute(const VectorBase<BaseFloat> &wave,
         if (opts_.cut_nyquist)
             cols_out--;
     }
+    } else { // freq or block_freq which has N+2 outputs and equal number of amp and phase
+	cols_out +=2; 
+    if (opts_.output_type == "amplitude")
+        cols_out=cols_out/2;
+    else if (opts_.output_type == "phase")
+        cols_out=cols_out/2;
+    if (opts_.output_type != "phase") {
+        if (opts_.cut_dc)
+            cols_out-=2;
+        if (opts_.cut_nyquist)
+            cols_out-=2;
+    }
+	}
+
     if (opts_.add_log_energy)
         cols_out++;
     if (opts_.add_amplitude_pnorm)
@@ -156,27 +171,40 @@ void Stft::Compute(const VectorBase<BaseFloat> &wave,
             for (int i=0; i< spectrum2.Dim(); i++)
                 temp(kk++)=spectrum2(i);
         } else {
-            if (!opts_.cut_dc)
+            if (!opts_.cut_dc) {
                 temp(kk++)=window(0);
-            if (!opts_.cut_nyquist)
+		if (opts_.output_layout == "freq")
+			temp(kk++)=0;
+	    }
+            if (!opts_.cut_nyquist && opts_.output_layout != "freq")
                 temp(kk++)=window(1);
 
             if (opts_.output_type == "amplitude") {
                 for (int i=0; i< spectrum1.Dim(); i++)
                     temp(kk++)=spectrum1(i);
+                if (!opts_.cut_nyquist && opts_.output_layout == "freq") {
+                  temp(kk++)=window(1);
+	        }
             } else { // write both spectra
-                if (opts_.block_output) {
+                if (opts_.output_layout == "block") {
                     for (int i=0; i< spectrum1.Dim(); i++)
                         temp(kk++)=spectrum1(i);
                     for (int i=0; i< spectrum2.Dim(); i++)
                         temp(kk++)=spectrum2(i);
                 }
-                else {
+                else if (opts_.output_layout == "default" || opts_.output_layout == "freq") {
                     for (int i=0; i< spectrum1.Dim(); i++) {
                         temp(kk++)=spectrum1(i);
                         temp(kk++)=spectrum2(i);
                     }
                 }
+		else {
+        		KALDI_ERR << "Unknown output_layout " << opts_.output_layout << ".";
+		}
+                if (!opts_.cut_nyquist && opts_.output_layout == "freq") {
+                  temp(kk++)=window(1);
+		  temp(kk++)=0;
+	        }
             }
         }
 
@@ -184,6 +212,7 @@ void Stft::Compute(const VectorBase<BaseFloat> &wave,
             temp(kk++)=pnorm;
         if (opts_.add_log_energy)
             temp(kk++)=log_energy;
+
 
         // Output buffers
         SubVector<BaseFloat> this_output(output->Row(r));

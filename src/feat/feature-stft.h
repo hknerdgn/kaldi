@@ -43,9 +43,12 @@ struct StftOptions {
   bool add_log_energy; // add log(energy) as last feature
   bool raw_energy; // use raw energy before windowing
   std::string output_type; // "real_and_imaginary", "amplitude_and_phase", "amplitude", "phase"
+  std::string output_layout; // layout == "default" then len=N, it is fft default, that is DC, NYQUIST, RE, IM, RE, IM, ...
+			     // layout == "block" then len=N, DC, NYQUIST, RE, RE, ..., IM, IM, ...
+			     // layout == "freq" then len=N+2, DC, 0, RE, IM, ..., RE, IM, NYQUIST, 0
+			     // layout == "block_freq" then len=N+2, DC, RE, RE,..., NYQUIST, 0, IM, IM,... , 0
   std::string amplitude_nonlinearity; // "none", "log", "power"
   BaseFloat amplitude_nonlinearity_param; // logbase or power
-  bool block_output; // default order is interleaved, that is DC, NYQUIST, RE, IM, RE, IM, ..., if block=true then DC, NYQUIST, RE, RE, ..., IM, IM, ...
   bool add_amplitude_pnorm; // add p-norm of amplitude vector as last feature (before energy if exists) after applying amplitude nonlinearity
   bool normalize_amplitude; // normalize vector after nonlinearity
   BaseFloat normalization_param; // p value for p-norm, use 0 for max norm (inf-norm)
@@ -57,9 +60,9 @@ struct StftOptions {
     add_log_energy(false),
     raw_energy(true),
     output_type("real_and_imaginary"),
+    output_layout("default"),
     amplitude_nonlinearity("none"),
     amplitude_nonlinearity_param(10),
-    block_output(false),
     add_amplitude_pnorm(false),
     normalize_amplitude(false),
     normalization_param(1.0) { }
@@ -83,8 +86,8 @@ struct StftOptions {
                  "Valid nonlinearities are none (default), log, power");
     po->Register("amplitude-nonlinearity-param", &amplitude_nonlinearity_param,
                  "log base or power value");
-    po->Register("block-output", &block_output,
-                 "If true, change order of output from: DC, NYQUIST, RE, IM, RE, IM, ... to DC, NYQUIST, RE, RE, ..., IM, IM, ...");
+    po->Register("output-layout", &output_layout,
+                 "default: DC NYQUIST RE IM RE IM ..., block: DC NYQUIST RE RE ... IM IM ..., freq: DC 0 RE IM RE IM... NYQUIST 0, block_freq: DC RE RE ... NYQUIST 0 IM IM ... 0");
     po->Register("add-amplitude-pnorm", &add_amplitude_pnorm,
                  "If true, add p-norm of the amplitude vector (after applying nonlinearity) at the end of the feature vector but before log-energy feature");
     po->Register("normalize-amplitude", &normalize_amplitude,

@@ -62,7 +62,14 @@ void Preemphasize(VectorBase<BaseFloat> *waveform, BaseFloat preemph_coeff) {
   (*waveform)(0) -= preemph_coeff * (*waveform)(0);
 }
 
-
+// reverses Preemphasis
+void Deemphasize(VectorBase<BaseFloat> *waveform, BaseFloat preemph_coeff) {
+  if (preemph_coeff == 0.0) return;
+  KALDI_ASSERT(preemph_coeff >= 0.0 && preemph_coeff <= 1.0);
+  //(*waveform)(0) = (*waveform)(0);
+  for (int32 i = 1; i < waveform->Dim(); i++)
+    (*waveform)(i) += preemph_coeff * (*waveform)(i-1);
+}
 
 FeatureWindowFunction::FeatureWindowFunction(const FrameExtractionOptions &opts) {
   int32 frame_length = opts.WindowSize();
@@ -166,6 +173,32 @@ void ExtractWindow(const VectorBase<BaseFloat> &wave,
   if (frame_length != frame_length_padded)
     SubVector<BaseFloat>(*window, frame_length,
                          frame_length_padded-frame_length).SetZero();
+}
+
+// OverlapAdd aims to reverse ExtractWindow to reconstruct a wave signal
+// OverlapAdd accumulates the waveform from a windowed frame.
+// It attempts to reverse pre-emphasis but cannot reverse dither or DC removal
+// typically: allocate and initialize wave to zero and call this function
+// for each frame similar to ExtractWindow
+void OverlapAdd(const VectorBase<BaseFloat> &window,
+                   int32 f,  // with 0 <= f < NumFrames(feats, opts)
+                   const FrameExtractionOptions &opts,
+                   const FeatureWindowFunction &window_function,
+                   Vector<BaseFloat> *wave) {
+  int32 frame_shift = opts.WindowShift();
+  int32 frame_length = window.Dim();
+  int32 start = frame_shift*f, end = start + frame_length;
+  KALDI_ASSERT(frame_shift != 0 && frame_length != 0);
+  KALDI_ASSERT(window_function.window.Dim() <= frame_length);
+  KALDI_ASSERT((*wave).Dim() >= end);
+  BaseFloat factor = static_cast<BaseFloat>(frame_shift) / static_cast<BaseFloat>(window_function.window.Sum());
+
+  SubVector<BaseFloat> window_part(*window, 0, frame_length);
+  if (opts.preemph_coeff != 0.0)
+    Deemphasize(&window_part, opts.preemph_coeff); // actually pre-emphasis and de-emphasis should be done before framing and after forming the full signal, but since it was done frame-wise in ExtractWindow function, we also revert it this way
+
+  for (int32 k=start, int32 j=0; j< frame_length, k<end; k++,j++)
+    (*wave)(k) += factor * window_part[j];
 }
 
 void ExtractWaveformRemainder(const VectorBase<BaseFloat> &wave,
