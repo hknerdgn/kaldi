@@ -6,41 +6,43 @@
 #
 # Apache 2.0
 
+# Begin configuration section
 wiener_filtering=false
-nj=4
-cmd=run.pl
+nj=1 #4
 nbmics=8
 resdir=.
+beamformit_dir=local/beamformit/beamformit
 # End configuration section
 
 echo "$0 $@"  # Print the command line for logging
 
 [ -f ./path.sh ] && . ./path.sh; # source the path.
+
 . parse_options.sh || exit 1;
 
-if [ $# != 3 ]; then
-   echo "Wrong #arguments ($#, expected 4)"
+if [ $# != 2 ]; then
+   echo "Wrong #arguments ($#, expected 2)"
    echo "Usage: steps/ami_beamform.sh [options] <corpus-dir> <enh>"
    echo "... where <corpus-dir> is assumed to be the directory where the"
    echo " ami corpus is located."
    echo "... <enh> is a keyword describing the output enhancement"
    echo "main options (for others, see top of script file)"
    echo "  --nj <nj>                                # number of parallel jobs"
-   echo "  --cmd <cmd>                              # Command to run in parallel with"
    echo "  --wiener-filtering <true/false>          # Cancel noise with Wiener filter prior to beamforming"
-   echo "  --nbmics <number of microphones       # sets the number of microphones used for beamforming (default 5)"
+   echo "  --nbmics <number of microphones>         # sets the number of microphones used for beamforming (default 5)"
+   echo "  --beamformit-dir <beamformit-dir>        # Directory where the beamformit binaries are located"
    exit 1;
 fi
 
+[ -f ./cmd.sh ] && . ./cmd.sh; # source cmd.
+
+cmd=$bf_cmd
+
 sdir=$1
 enh=$2
-odir=$resdir/data_$enh
-wdir=data/local/$enh
+odir=$resdir/data_$enh/ami
+wdir=data_$enh/ami/local/$enh
 
-
-if [ -z "$cmd" ]; then
-    cmd=$train_cmd
-fi
 
 set -e 
 set -u
@@ -85,9 +87,10 @@ if [ $wiener_filtering == "true" ]; then
   exit 1;
 fi
 
-# do beamforming,
+# do beamforming
+conf=local/beamformit/conf/beamformit.cfg
 echo -e "Beamforming\n"
 $cmd JOB=1:$nj $wdir/log/beamform.JOB.log \
-     local/beamformit.sh $nj JOB $nbmics $meetings $sdir $odir
+     local/beamformit/beamformit.sh $nj JOB $nbmics $meetings $sdir $odir $wdir $conf $beamformit_dir &
 
 touch $odir/.done_$enh

@@ -1,0 +1,1 @@
+../../../reverb/s5/local/score.sh

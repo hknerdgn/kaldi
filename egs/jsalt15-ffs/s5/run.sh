@@ -13,31 +13,17 @@
 . ./path.sh
 
 
-do_ami=false #false #true #false #true/false
-do_chime3=false #true/fasle
-do_reverb=true #true #false #true #false #true/false
+do_ami=false #true #false #true/false
+do_chime3=false #true #false #true/fasle
+do_reverb=true #false #true #false #true/false
 
-stage=0
+stage=1
+
 . utils/parse_options.sh
-
-# Keyword describing enhancement
-#enhan_ami=mdm8
-#enhan_chime3=isolated_beamformed_1sec_scwin_ch1_3-6 #noisy
-#enhan_reverb=noenh #isolated_beamformed_1sec_scwin_ch1_3-6
 
 multi_mics=false #true # true or false (true if multi-microphone output signals)
 
-# Paths with the enhanced data (change with your data)
-#AMI_ENH_CORPUS=/export/ws15-ffs-data/corpora/ami/beamformed/ 
-#CHIME3_ENH_CORPUS=/export/ws15-ffs-data/swatanabe/tools/kaldi-trunk/egs/chime3/s5/beamformit/enhanced_wav/isolated_beamformed_1sec_scwin_ch1_3-6/
-#REVERB_ENH_CORPUS=/export/ws15-ffs-data/corpora/reverb/REVERB
-
-#AMI_ENH_CORPUS=/export/ws15-ffs-data/mdelcroix/data/ami/data_wpe8
-#CHIME3_ENH_CORPUS=/export/ws15-ffs-data/mdelcroix/data/chime3/data_wpe6/data/audio/16kHz/isolated
-#REVERB_ENH_CORPUS=/export/ws15-ffs-data/mdelcroix/data/REVERB/data_wpe8
-
-
-
+# Paths to the corpora
 AMI_CORPUS=/export/ws15-ffs-data/corpora/ami
 CHIME3_CORPUS=/export/ws15-ffs-data/corpora/chime3/CHiME3
 REVERB_CORPUS=/export/ws15-ffs-data/corpora/reverb/REVERB
@@ -65,14 +51,13 @@ if [ $stage -le 0 ]; then
     # Requires to have WPE package for the moment
     # you can request it by e-mail
     # e-mail marc.delcroix@lab.ntt.co.jp
-
     pushd local/wpe/
     bash install_wpe.sh /export/ws15-ffs-data/mdelcroix/tools/wpe_v1.2.tgz
     popd
 
     if [ $do_ami == true ];then
 	echo Performing WPE for AMI
-	bash local/wpe/ami_wpe.sh  $AMI_CORPUS 8 dev
+	bash local/wpe/ami_wpe.sh $AMI_CORPUS 8 dev
 	bash local/wpe/ami_wpe.sh $AMI_CORPUS 8 eval
     fi
 
@@ -97,38 +82,42 @@ enhan_chime3=wpe6_bf
 enhan_reverb=wpe8_bf
 if [ $stage -le 1 ]; then
 
-    pushd local/beanformit
+    pushd local/beamformit
     bash install_beamformit.sh
     popd
-    
+
+    beamformit_dir=/export/ws15-ffs-data/swatanabe/tools/beamformit/bin/BeamformIt-3.51
     if [ $do_ami == true ];then
-	AMI_BF_IN_CORPUS=data_wpe8_bf
+	AMI_BF_IN_CORPUS=data_wpe8
 	echo Performing beamformit for AMI
-	bash local/beanformit/ami_beamformit.sh $AMI_BF_IN_CORPUS $enhan_ami
+	bash local/beamformit/ami_beamformit.sh --beamformit-dir --nj 1 $beamformit_dir $AMI_BF_IN_CORPUS $enhan_ami
     fi
 
     if [ $do_chime3 == true ];then
-	CHIME3_BF_IN_CORPUS=data_wpe6_bf
+	CHIME3_BF_IN_CORPUS=data_wpe6
 	echo Performing BEAMFORMIT for CHiME3
-	bash local/beamformit/chime3_beamformit.sh $CHIME3_BF_IN_CORPUS \
+	bash local/beamformit/chime3_beamformit.sh --beamformit-dir $beamformit_dir --nj 1 $CHIME3_BF_IN_CORPUS \
 	     $enhan_chime3 dt05
-	bash local/beamformit/chime3_beamformit.sh $CHIME3_BF_IN_CORPUS \
+	bash local/beamformit/chime3_beamformit.sh --beamformit-dir $beamformit_dir --nj 1 $CHIME3_BF_IN_CORPUS \
 	     $enhan_chime3 et05
     fi
     
     if [ $do_reverb == true ];then
-	REVERB_BF_IN_CORPUS=data_wpe8_bf
+	REVERB_BF_IN_CORPUS=data_wpe8
 	echo Performing BEAMFORMIT for REVERB
-	bash local/beamformit/reverb_beamformit.sh $REVERB_BF_IN_CORPUS \
-	     $enhan_reverb dt RealData
-	bash local/beamformit/reverb_beamformit.sh $REVERB_BF_IN_CORPUS \
-	     $enhan_reverb et RealData
+	bash local/beamformit/reverb_beamformit.sh --beamformit-dir $beamformit_dir --nj 1 $REVERB_BF_IN_CORPUS/MC_WSJ_AV_Dev \
+	     $enhan_reverb dt RealData 
+	bash local/beamformit/reverb_beamformit.sh --beamformit-dir $beamformit_dir --nj 1 $REVERB_BF_IN_CORPUS/MC_WSJ_AV_Eval \
+	     $enhan_reverb et RealData 
     fi
+# XXXX
+exit
+####
 fi
 
-AMI_ENH_CORPUS=data_wpe8_bf
-CHIME3_ENH_CORPUS=data_wpe6_bf
-REVERB_ENH_CORPUS=data_wpe8_bf
+AMI_ENH_CORPUS=`pwd`/data_wpe8_bf/ami
+CHIME3_ENH_CORPUS=`pwd`/data_wpe6_bf/data/audio/16kHz/isolated
+REVERB_ENH_CORPUS=`pwd`/data_wpe8_bf
 
 
 # Data preparation for decoding
@@ -136,17 +125,17 @@ if [ $stage -le 2 ]; then
     if [ $do_ami == true ]; then
 	echo do ami
 
-	mkdir -p data/local/annotations/
-	cp ${AMI_EXP_DIR}/data/local/annotations/dev.txt data/local/annotations/
-	cp ${AMI_EXP_DIR}/data/local/annotations/eval.txt data/local/annotations/
+	mkdir -p data_${enhan_ami}/ami/local/annotations/
+	cp ${AMI_EXP_DIR}/data/local/annotations/dev.txt data_${enhan_ami}/ami/local/annotations/
+	cp ${AMI_EXP_DIR}/data/local/annotations/eval.txt data_${enhan_ami}/ami/local/annotations/
 	
 	if [[ $multi_mics == true ]];then
 	    micid=1
-	    local/ami_mc_enh_scoring_data_prep.sh $AMI_ENH_CORPUS $micid dev $enhan_ami
-	    local/ami_mc_enh_scoring_data_prep.sh $AMI_ENH_CORPUS $micid eval $enhan_ami
+	    local/ami_mc_enh_scoring_data_prep.sh --mic $micid $AMI_ENH_CORPUS dev $enhan_ami
+	    local/ami_mc_enh_scoring_data_prep.sh --mic $micid $AMI_ENH_CORPUS eval $enhan_ami
 	else
-	    local/ami_mdm_scoring_data_prep.sh $AMI_ENH_CORPUS $enhan_ami dev
-	    local/ami_mdm_scoring_data_prep.sh $AMI_ENH_CORPUS $enhan_ami eval
+	    local/ami_mc_enh_scoring_data_prep.sh $AMI_ENH_CORPUS dev $enhan_ami
+	    local/ami_mc_enh_scoring_data_prep.sh $AMI_ENH_CORPUS eval $enhan_ami
 	fi
     fi
     if [[ $do_chime3 == true ]]; then
@@ -195,17 +184,10 @@ if [ $stage -le 2 ]; then
     fi
 fi
 
-# Decoding
-
-# AMI models
+# Feature extraction
 gmm_dir=$AMI_EXP_DIR/exp/$mic/tri4a
-dnn_dir=$AMI_EXP_DIR/exp/$mic/dnn4_pretrain-dbn_dnn
-acwt=0.1
-
 fmllr_data=data-fmllr-tri4
 fmllr_decode_dir=exp/$mic/tri4a
-dnn_decode=exp/$mic/dnn4_pretrain-dbn_dnn
-
 
 if [ $stage -le 3 ]; then
 
@@ -229,7 +211,7 @@ if [ $stage -le 3 ]; then
     # AMI task
     if [ $do_ami == true ]; then
 
-	echo decode AMI task
+	echo feature extraction AMI task
 	
 	final_lm=`cat $AMI_EXP_DIR/data/local/lm/final_lm`
 	lm_suffix=$final_lm.pr1-7
@@ -238,20 +220,18 @@ if [ $stage -le 3 ]; then
 	
 	for tset in dev eval; do
 
-	    tgt=data/$enhan_ami/$tset
+	    dataset=data_$enhan_ami/ami/$tset
 	    fmllr_wrk_dir=${fmllr_decode_dir}/decode_${tset}_$enhan_ami
-	    decode_dir=${dnn_decode}/decode_${tset}_${lm_suffix}_${enhan_ami}
 	    fmllr_data_dir=${fmllr_data}/$enhan_ami/${tset}
+	    mkdir -p $fmllr_wrk_dir
 	    
-	    
-	    local/run_dnn_fmllr_decode.sh --nj 10 --num-threads 3 \
-					  --graph-dir $graph_dir \
-					  --gmm-dir $gmm_dir \
-					  --dnn-dir $dnn_dir \
-					  --data-dir $tgt \
-					  --fmllr-data-dir $fmllr_data_dir \
-					  --fmllr-wrk-dir $fmllr_wrk_dir\
-					  $decode_dir &
+	    local/run_fe_fmllr.sh --nj 10 --num-threads 3 \
+					  $graph_dir \
+					  $gmm_dir \
+					  $dataset \
+					  $fmllr_data_dir \
+					  $fmllr_wrk_dir
+					  
 	done
 
 	
@@ -276,18 +256,16 @@ if [ $stage -le 3 ]; then
 
 	    dataset=data/${tset}05_real_$enhan_chime3
 	    fmllr_wrk_dir=${fmllr_decode_dir}/decode_${tset}05_real_$enhan_chime3
-	    decode_dir=${dnn_decode}/decode_tgpr_5k_${tset}05_real_${enhan_chime3}
 	    fmllr_data_dir=${fmllr_data}/${tset}05_real_${enhan_chime3}
 	    
-	    # Does feature extraction, FMMLR, and DNN decoding
-	    local/run_dnn_fmllr_decode.sh --nj 4 --num-threads 3 \
-					  --graph-dir $graph_dir \
-					  --gmm-dir $gmm_dir \
-					  --dnn-dir $dnn_dir \
-					  --data-dir $dataset \
-					  --fmllr-data-dir $fmllr_data_dir \
-					  --fmllr-wrk-dir $fmllr_wrk_dir\
-					  $decode_dir &
+
+	    # Does feature extraction an FMLLR
+	    local/run_fe_fmllr.sh --nj 4 --num-threads 3 \
+					  $graph_dir \
+					  $gmm_dir \
+					  $dataset \
+					  $fmllr_data_dir \
+					  $fmllr_wrk_dir
 	    
 	done  
     fi
@@ -308,25 +286,129 @@ if [ $stage -le 3 ]; then
 
 		# Making decoding graph
 		$highmem_cmd $graph_dir/mkgraph.log \
-			     utils/mkgraph.sh data/lang_ami2reverb $AMI_EXP_DIR/exp/$mic/tri4a $graph_dir
+			     utils/mkgraph.sh data/lang_ami2reverb \
+			     $AMI_EXP_DIR/exp/$mic/tri4a $graph_dir
 		echo finished preparing data
 
 		fmllr_wrk_dir=${fmllr_decode_dir}/decode_`basename $dataset`_$enhan_reverb
-		decode_dir=${dnn_decode}/decode_tg_5k_`basename $dataset`_$enhan_reverb
 		fmllr_data_dir=${fmllr_data}/`basename $dataset`_$enhan_reverb
 		
 
-		# Does feature extraction, FMMLR, and DNN decoding
-		local/run_dnn_fmllr_decode.sh --nj 4 --num-threads 3 \
-					      --graph-dir $graph_dir \
-					      --gmm-dir $gmm_dir \
-					      --dnn-dir $dnn_dir \
-					      --data-dir $dataset \
-					      --fmllr-data-dir $fmllr_data_dir \
-					      --fmllr-wrk-dir $fmllr_wrk_dir\
-					      $decode_dir &
+		# Does feature extraction an FMLLR
+		local/run_fe_fmllr.sh --nj 4 --num-threads 3 \
+					      $graph_dir \
+					      $gmm_dir \
+					      $dataset \
+					      $fmllr_data_dir \
+					      $fmllr_wrk_dir
+
+	    done
+	done
+    fi
+fi
+
+wait
+
+# Decoding
+
+# AMI models
+dnn_dir=$AMI_EXP_DIR/exp/$mic/dnn4_pretrain-dbn_dnn
+acwt=0.1
+
+dnn_decode=exp/$mic/dnn4_pretrain-dbn_dnn
+
+
+if [ $stage -le 4 ]; then
+
+    ###############
+    ###############
+    # AMI task
+    if [ $do_ami == true ]; then
+
+	echo decode AMI task
+	
+	final_lm=`cat $AMI_EXP_DIR/data/local/lm/final_lm`
+	lm_suffix=$final_lm.pr1-7
+    
+	graph_dir=$AMI_EXP_DIR/exp/$mic/tri4a/graph_${lm_suffix}
+	
+	for tset in dev eval; do
+
+	    decode_dir=${dnn_decode}/decode_${tset}_${lm_suffix}_${enhan_ami}
+	    fmllr_data_dir=${fmllr_data}/$enhan_ami/${tset}
+	    scoring_opts=ami
+    
+            # DNN Decoding
+	    steps/nnet/decode.sh --nj 10 --cmd "$decode_cmd" --config conf/decode_dnn.conf \
+                --num-threads 3 \
+                --nnet $dnn_dir/final.nnet --acwt $acwt \
+                --srcdir $dnn_dir \
+		--scoring-opts $scoring_opts \
+                $graph_dir $fmllr_data_dir $decode_dir &
+	    
+	done
+
+	
+    fi
+    ###############
+    ###############
+    # CHiME3 task
+    if [ $do_chime3 == true ]; then
+	
+	echo decode CHiME3 task
+	
+	lm_suffix=lm_tgpr_5k
+	graph_dir=${fmllr_decode_dir}/graph_${lm_suffix}
+	
+	
+	for tset in dt et; do
+
+	    decode_dir=${dnn_decode}/decode_tgpr_5k_${tset}05_real_${enhan_chime3}
+	    fmllr_data_dir=${fmllr_data}/${tset}05_real_${enhan_chime3}
+	    
+	    scoring_opts=chime3
+    
+            # DNN Decoding
+	    steps/nnet/decode.sh --nj 4 --cmd "$decode_cmd" --config conf/decode_dnn.conf \
+                --num-threads 3 \
+                --nnet $dnn_dir/final.nnet --acwt $acwt \
+                --srcdir $dnn_dir \
+		--scoring-opts $scoring_opts \
+                $graph_dir $fmllr_data_dir $decode_dir &
+	done  
+    fi
+
+    ###############
+    ###############
+    # REVERB task
+    if [ $do_reverb == true ]; then
+	
+	echo decode REVERB task
+    
+	for tset in dt et; do
+	    for dataset in `ls -d data/REVERB_Real_${tset}_${enhan_reverb}/RealData_${tset}*` ; do
+		echo $dataset
+
+		lm_suffix=lm_tg_5k
+		graph_dir=${fmllr_decode_dir}/graph_${lm_suffix}
+
+
+		decode_dir=${dnn_decode}/decode_tg_5k_`basename $dataset`_$enhan_reverb
+		fmllr_data_dir=${fmllr_data}/`basename $dataset`_$enhan_reverb
+
+		scoring_opts=reverb
+                
+                # DNN Decoding
+		steps/nnet/decode.sh --nj 4 --cmd "$decode_cmd" --config conf/decode_dnn.conf \
+        　　　　　　--num-threads 3 \
+                    --nnet $dnn_dir/final.nnet --acwt $acwt \
+                    --srcdir $dnn_dir \
+		    --scoring-opts $scoring_opts \
+                    $graph_dir $fmllr_data_dir $decode_dir &
 
 	    done
 	done
     fi
 fi    
+
+wait

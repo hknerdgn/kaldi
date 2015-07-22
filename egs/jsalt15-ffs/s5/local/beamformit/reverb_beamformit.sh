@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# chime3_bf.sh
+# reverb_bf.sh
 #
-# Perform beamforming with bemafromit for CHiME3 data
+# Perform beamforming with bemafromit for Reverb data
 #
 # Copyright (c) 2015  Nippon Telegraph and Telephone corporation (NTT). (author: Marc Delcroix)
 #
@@ -22,9 +22,10 @@
 
 # Begin configuration section.
 wiener_filtering=false
-bmf="1 3 4 5 6"
+bmf="1 2 3 4 5 6 7 8"
+bmf="A B C D E F G H"
 nj=1 #30
-nbmics=5
+nbmics=8
 resdir=.
 beamformit_dir=local/beamformit/beamformit
 # End configuration section.
@@ -35,13 +36,14 @@ echo "$0 $@"  # Print the command line for logging
 . parse_options.sh || exit 1;
 
 
-if [ $# != 3 ]; then
-   echo "Usage: chime3_bf.sh [options] <corpus-dir> <enh> <tset>"
+if [ $# != 4 ]; then
+   echo "Usage: reverb_bf.sh [options] <corpus-dir> <enh> <tset> <dataset>"
    echo "... where <corpus-dir> is assumed to be the directory where the"
-   echo " original chime3 corpus is located."
+   echo " original reverb corpus is located."
    echo "... <enh> is a keyword describing the output enhancement"
-    echo "... <tset> is the target test set (dt05/et05)"
-   echo "e.g.: local/beaformit/chime3_bf.sh /export/CHiME3 bf5 dt05"
+   echo "... <tset> is the target test set (dt05/et05)"
+   echo "... <dataset> is the date set (RealData/SimData)"
+   echo "e.g.: local/beaformit/reverb_bf.sh /export/Reverb bf5 dt RealData"
    echo ""
    echo ""
    echo "main options (for others, see top of script file)"
@@ -51,19 +53,18 @@ if [ $# != 3 ]; then
    exit 1;
 fi
 
-sdir=$1
+idir=$1
 enh=$2
 tset=$3
-
+dataset=$4
 [ -f ./cmd.sh ] && . ./cmd.sh;
 
 cmd=$bf_cmd
 echo $cmd
 
-odir=$resdir/data_${enh}/chime3/data/audio/16kHz/isolated
-idir=$sdir/data/audio/16kHz/isolated
-#./enhanced_wav/${sdir_name}_beamformed_1sec_scwin_ch1_3-6
-wdir=data_${enh}/chime3/local/$tset
+odir=$resdir/data_${enh}/reverb
+
+wdir=data_${enh}/reverb/local/$tset
 conf=local/beamformit/conf/beamformit.cfg
 
 mkdir -p $odir
@@ -71,31 +72,58 @@ mkdir -p $wdir/log
 
 wavfiles=$wdir/wavfiles.list
 
-echo "Will use the following channels: $bmf"
-
 #make the channel file and wav list file
 rm -f $wdir/channels_$nbmics
 rm -f $wavfiles
 
-#for line in `find $idir/ -name "*.CH1.wav" | egrep 'tr05|et05|dt05' | awk -F '/' '{print $(NF-1) "/" $NF}' | sed -e "s/.CH1.wav//" | sort`; do
-# does not enhance train data!
 echo source dir : $sdir
 echo test set : $tset
-for line in `find $idir/ -name "*.CH1.wav" | grep $tset | awk -F '/' '{print $(NF-1) "/" $NF}' | sed -e "s/.CH1.wav//" | sort`; do
-  channels="${line} "
-  echo ${line} >> $wavfiles
-  for ch in $bmf; do
-    channels="$channels $line.CH$ch.wav"
-  done
-  echo $channels >> $wdir/channels_$nbmics
+
+if [ $dataset == RealData ]; then
+    rooms=1
+else
+    rooms="1 2 3"
+fi
+
+taskdir=data/local/reverb_tools/ReleasePackage/reverb_tools_for_asr_ver2.0/taskFiles/${nbmics}ch
+
+for room in $rooms; do 
+    for dist in  near far; do
+	wavfiles_cond=$wdir/wavfiles_${dataset}_${tset}_${nbmics}ch_${dist}_room${room}.list
+	rm -f $wavfiles_cond
+
+	for line in `cat $taskdir/${dataset}_${tset}_for_${nbmics}ch_${dist}_room${room}_A`; do
+	    wav=`echo $line | sed -e "s/.wav//"` 
+	    echo $wav >> $wavfiles_cond
+	    echo $wav >> $wavfiles
+	done
+
+	tasks="$wavfiles_cond"
+	for mic in `seq 1 $nbmics`; do
+	    mic_idx=
+	    case $mic in
+		1 ) mic_idx=A ;;
+		2 ) mic_idx=B ;;
+		3 ) mic_idx=C ;;
+		4 ) mic_idx=D ;;
+		5 ) mic_idx=E ;;
+		6 ) mic_idx=F ;;
+		7 ) mic_idx=G ;;
+		8 ) mic_idx=H ;;
+	    esac
+	    
+	    task=$taskdir/${dataset}_${tset}_for_${nbmics}ch_${dist}_room${room}_$mic_idx	
+	    tasks="$tasks $task"
+	done
+	echo $tasks
+
+	paste -d' ' $tasks >> $wdir/channels_${nbmics}
+    done
 done
 
-#do noise cancellation
+echo  $wdir/channels_${nbmics}
+echo  $wavfiles
 
-if [ $wiener_filtering == "true" ]; then
-  echo "Wiener filtering not yet implemented."
-  exit 1;
-fi
 
 #do beamforming
 
@@ -104,3 +132,5 @@ echo -e "Beamforming\n"
 
 $cmd JOB=1:$nj $wdir/log/beamform.JOB.log \
   `pwd`/local/beamformit/beamformit.sh $nj JOB $nbmics $wavfiles $idir $odir $wdir $conf $beamformit_dir &
+
+exit
