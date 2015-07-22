@@ -43,36 +43,7 @@ void Stft::Compute(const VectorBase<BaseFloat> &wave,
 
     // Get dimensions of output features
     int32 rows_out = NumFrames(wave.Dim(), opts_.frame_opts);
-    int32 cols_out = opts_.frame_opts.PaddedWindowSize();
-    if (opts_.output_layout == "default" || opts_.output_layout == "block") {
-    if (opts_.output_type == "amplitude")
-        cols_out=cols_out/2+1;
-    else if (opts_.output_type == "phase")
-        cols_out=cols_out/2-1;
-    if (opts_.output_type != "phase") {
-        if (opts_.cut_dc)
-            cols_out--;
-        if (opts_.cut_nyquist)
-            cols_out--;
-    }
-    } else { // freq or block_freq which has N+2 outputs and equal number of amp and phase
-	cols_out +=2; 
-    if (opts_.output_type == "amplitude")
-        cols_out=cols_out/2;
-    else if (opts_.output_type == "phase")
-        cols_out=cols_out/2;
-    if (opts_.output_type != "phase") {
-        if (opts_.cut_dc)
-            cols_out-=2;
-        if (opts_.cut_nyquist)
-            cols_out-=2;
-    }
-	}
-
-    if (opts_.add_log_energy)
-        cols_out++;
-    if (opts_.add_amplitude_pnorm)
-        cols_out++;
+    int32 cols_out = opts_.frame_opts.PaddedWindowSize()+2;
 
     if (rows_out == 0)
         KALDI_ERR << "No frames fit in file (#samples is " << wave.Dim() << ")";
@@ -85,8 +56,6 @@ void Stft::Compute(const VectorBase<BaseFloat> &wave,
 
     // Buffers
     Vector<BaseFloat> window;  // windowed waveform.
-    BaseFloat log_energy;
-    BaseFloat pnorm;
 
     // Compute all the frames, r is frame index..
     for (int32 r = 0; r < rows_out; r++) {
@@ -94,12 +63,6 @@ void Stft::Compute(const VectorBase<BaseFloat> &wave,
         ExtractWindow(wave, r, opts_.frame_opts, feature_window_function_,
                       &window, (opts_.add_log_energy && opts_.raw_energy ? &log_energy : NULL));
         // Compute energy after window function (not the raw one)
-        if (opts_.add_log_energy && !opts_.raw_energy)
-            log_energy = log(std::max(VecVec(window, window),
-                                      std::numeric_limits<BaseFloat>::min()));
-        if (log_energy < opts_.log_floor) {
-            log_energy = opts_.log_floor;
-        }
 
         if (srfft_ != NULL)  // Compute FFT using split-radix algorithm.
             srfft_->Compute(window.Data(), true);
@@ -109,14 +72,18 @@ void Stft::Compute(const VectorBase<BaseFloat> &wave,
         // Copy FFT vector of size N directly to output
         // order of FFT results is: X[0] X[N/2] Re(X[1]) Im(X[1]) Re(X[2]) Im(X[2]) ... Re(X[N/2-1]) Im(X[N/2-1])
 
-        Vector<BaseFloat> spectrum1; // real part
-        Vector<BaseFloat> spectrum2; // imaginary part
+        Vector<BaseFloat> spectrum1(window.Dim()/2+1); // real part
+        Vector<BaseFloat> spectrum2(window.Dim()/2+1); // imaginary part
 
-        int k=0;
+        spectrum1(0)=window(0); // DC frequency
+        spectrum2(0)=0;
+        int k=1;
         for (int i=2; i < window.Dim(); i+=2) {
             spectrum1(k)=window(i);
             spectrum2(k++)=window(i+1);
         }
+        spectrum1(k)=window(1);  // Nyquist frequency
+        spectrum2(k)=0;
 
         if (opts_.output_type == "amplitude_and_phase") {
             for (int i=0; i < spectrum1.Dim(); i++) {
@@ -137,82 +104,29 @@ void Stft::Compute(const VectorBase<BaseFloat> &wave,
             }
         }
 
-        // nonlinearity for amplitude
-        // not applied for DC and Nyquist frequencies for now
-        if (opts_.output_type == "amplitude_and_phase" || opts_.output_type == "amplitude") {
-            if (opts_.amplitude_nonlinearity == "log") {
-                spectrum1.ApplyFloor(std::numeric_limits<BaseFloat>::min());
-                spectrum1.ApplyLog();
-                spectrum1.Scale(1.0/std::log(opts_.amplitude_nonlinearity_param)); // change log base if needed
-            }
-        }
-        else if (opts_.amplitude_nonlinearity == "power") {
-            spectrum1.ApplyPow(opts_.amplitude_nonlinearity_param);
-        }
-
-        // normalize amplitudes if needed
-	// except DC and Nyquist
-
-        if (opts_.add_amplitude_pnorm || opts_.normalize_amplitude) {
-            if (opts_.normalization_param == 0 )
-                pnorm=spectrum1.Max();
-            else
-                pnorm=spectrum1.Norm(opts_.normalization_param);
-            if (opts_.normalize_amplitude) {
-                spectrum1.Scale(1.0/pnorm);
-            }
-        }
-
         // start forming output
         Vector<BaseFloat> temp(cols_out);
         int kk=0;
 
-        if (opts_.output_type == "phase") {
+        if (opts_.output_type == "amplitude" ) {
+            for (int i=0; i< spectrum1.Dim(); i++)
+                temp(kk++)=spectrum1(i);
+        } else if (opts_.output_type == "phase" ) {
             for (int i=0; i< spectrum2.Dim(); i++)
                 temp(kk++)=spectrum2(i);
-        } else {
-            if (!opts_.cut_dc) {
-                temp(kk++)=window(0);
-		if (opts_.output_layout == "freq")
-			temp(kk++)=0;
-	    }
-            if (!opts_.cut_nyquist && opts_.output_layout != "freq")
-                temp(kk++)=window(1);
-
-            if (opts_.output_type == "amplitude") {
-                for (int i=0; i< spectrum1.Dim(); i++)
-                    temp(kk++)=spectrum1(i);
-                if (!opts_.cut_nyquist && opts_.output_layout == "freq") {
-                  temp(kk++)=window(1);
-	        }
-            } else { // write both spectra
-                if (opts_.output_layout == "block") {
-                    for (int i=0; i< spectrum1.Dim(); i++)
-                        temp(kk++)=spectrum1(i);
-                    for (int i=0; i< spectrum2.Dim(); i++)
-                        temp(kk++)=spectrum2(i);
-                }
-                else if (opts_.output_layout == "default" || opts_.output_layout == "freq") {
-                    for (int i=0; i< spectrum1.Dim(); i++) {
-                        temp(kk++)=spectrum1(i);
-                        temp(kk++)=spectrum2(i);
-                    }
-                }
-		else {
-        		KALDI_ERR << "Unknown output_layout " << opts_.output_layout << ".";
-		}
-                if (!opts_.cut_nyquist && opts_.output_layout == "freq") {
-                  temp(kk++)=window(1);
-		  temp(kk++)=0;
-	        }
+        } else if (opts_.output_layout == "block" ) {
+            for (int i=0; i< spectrum1.Dim(); i++)
+                temp(kk++)=spectrum1(i);
+            for (int i=0; i< spectrum2.Dim(); i++)
+                temp(kk++)=spectrum2(i);
+        } else if (opts_output_layout == "interleaved" ) {
+            for (int i=0; i< spectrum1.Dim(); i++) {
+                temp(kk++)=spectrum1(i);
+                temp(kk++)=spectrum2(i);
             }
+        } else {
+            KALDI_ERR << "output_type or output_layout wrong!!!";
         }
-
-        if (opts_.add_amplitude_pnorm)
-            temp(kk++)=pnorm;
-        if (opts_.add_log_energy)
-            temp(kk++)=log_energy;
-
 
         // Output buffers
         SubVector<BaseFloat> this_output(output->Row(r));

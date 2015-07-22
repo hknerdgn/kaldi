@@ -37,63 +37,21 @@ namespace kaldi {
 /// It does not include delta computation.
 struct StftOptions {
   FrameExtractionOptions frame_opts;
-  BaseFloat log_floor; // floor for log(value) in log domain, used only for log outputs
-  bool cut_dc; // do not output DC frequency value X[0]
-  bool cut_nyquist; // do not output Nyquist frequency value X[1]
-  bool add_log_energy; // add log(energy) as last feature
-  bool raw_energy; // use raw energy before windowing
   std::string output_type; // "real_and_imaginary", "amplitude_and_phase", "amplitude", "phase"
-  std::string output_layout; // layout == "default" then len=N, it is fft default, that is DC, NYQUIST, RE, IM, RE, IM, ...
-			     // layout == "block" then len=N, DC, NYQUIST, RE, RE, ..., IM, IM, ...
-			     // layout == "freq" then len=N+2, DC, 0, RE, IM, ..., RE, IM, NYQUIST, 0
-			     // layout == "block_freq" then len=N+2, DC, RE, RE,..., NYQUIST, 0, IM, IM,... , 0
-  std::string amplitude_nonlinearity; // "none", "log", "power"
-  BaseFloat amplitude_nonlinearity_param; // logbase or power
-  bool add_amplitude_pnorm; // add p-norm of amplitude vector as last feature (before energy if exists) after applying amplitude nonlinearity
-  bool normalize_amplitude; // normalize vector after nonlinearity
-  BaseFloat normalization_param; // p value for p-norm, use 0 for max norm (inf-norm)
+  std::string output_layout; // layout == "block" then len=N+2, that is RE, IM, RE, IM, ...
+			     // layout == "interleaved" then len=N+2, RE, RE, ..., IM, IM, ...
 
   StftOptions() :
-    log_floor(-30),  // in log scale: a small value e.g. 1.0e-10
-    cut_dc(false),
-    cut_nyquist(false),
-    add_log_energy(false),
-    raw_energy(true),
     output_type("real_and_imaginary"),
-    output_layout("default"),
-    amplitude_nonlinearity("none"),
-    amplitude_nonlinearity_param(10),
-    add_amplitude_pnorm(false),
-    normalize_amplitude(false),
-    normalization_param(1.0) { }
+    output_layout("block") { }
     
 
   void Register(OptionsItf *po) {
     frame_opts.Register(po);
-    po->Register("log-floor", &log_floor,
-                 "Floor on logarithms (in log domain) in STFT computation");
-    po->Register("cut-dc", &cut_dc,
-                 "Cut DC value in STFT output");
-    po->Register("cut-nyquist", &cut_nyquist,
-                 "Cut Nyquist frequency value in STFT output");
-    po->Register("add-log-energy", &add_log_energy,
-                 "Add log-energy to the end of the STFT output vector");
-    po->Register("raw-energy", &raw_energy,
-                 "If true, compute energy before preemphasis and windowing");
     po->Register("output-type", &output_type,
                  "Valid types are real_and_imaginary (default), amplitude_and_phase, amplitude, phase");
-    po->Register("amplitude-nonlinearity", &amplitude_nonlinearity,
-                 "Valid nonlinearities are none (default), log, power");
-    po->Register("amplitude-nonlinearity-param", &amplitude_nonlinearity_param,
-                 "log base or power value");
     po->Register("output-layout", &output_layout,
-                 "default: DC NYQUIST RE IM RE IM ..., block: DC NYQUIST RE RE ... IM IM ..., freq: DC 0 RE IM RE IM... NYQUIST 0, block_freq: DC RE RE ... NYQUIST 0 IM IM ... 0");
-    po->Register("add-amplitude-pnorm", &add_amplitude_pnorm,
-                 "If true, add p-norm of the amplitude vector (after applying nonlinearity) at the end of the feature vector but before log-energy feature");
-    po->Register("normalize-amplitude", &normalize_amplitude,
-                 "If true, normalize amplitude vector by dividing by its p-norm value");
-    po->Register("normalization-param", &normalization_param,
-                 "Value of p for the p-norm, enter 0 for max (or infinity) norm, default 1");
+                 "block: RE RE ... IM IM ... , interleaved: RE IM RE IM ...
   }
 };
 
