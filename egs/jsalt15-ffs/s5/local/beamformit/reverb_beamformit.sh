@@ -22,11 +22,8 @@
 
 # Begin configuration section.
 wiener_filtering=false
-bmf="1 2 3 4 5 6 7 8"
-bmf="A B C D E F G H"
 nj=1 #30
 nbmics=8
-resdir=.
 beamformit_dir=local/beamformit/beamformit
 # End configuration section.
 
@@ -36,8 +33,8 @@ echo "$0 $@"  # Print the command line for logging
 . parse_options.sh || exit 1;
 
 
-if [ $# != 4 ]; then
-   echo "Usage: reverb_bf.sh [options] <corpus-dir> <enh> <tset> <dataset>"
+if [ $# != 5 ]; then
+   echo "Usage: reverb_bf.sh [options] <corpus-dir> <enh> <tset> <dataset> <odir>"
    echo "... where <corpus-dir> is assumed to be the directory where the"
    echo " original reverb corpus is located."
    echo "... <enh> is a keyword describing the output enhancement"
@@ -47,7 +44,6 @@ if [ $# != 4 ]; then
    echo ""
    echo ""
    echo "main options (for others, see top of script file)"
-   echo "  --resdir <enahnced data dir>          # directory where to save the the enhanced speech"
    echo "  --nj <nj>                                # number of parallel jobs"
    echo "  --nbmics <number of microphones       # sets the number of microphones used for beamforming (default 5)"
    exit 1;
@@ -57,6 +53,7 @@ idir=$1
 enh=$2
 tset=$3
 dataset=$4
+
 [ -f ./cmd.sh ] && . ./cmd.sh;
 
 cmd=$bf_cmd
@@ -74,9 +71,9 @@ else
     corpus=REVERB_WSJCAM0_$tset
 fi
 
-odir=$resdir/data_${enh}/reverb/$corpus
+odir=$5/$corpus
 
-wdir=data_${enh}/reverb/local/$tset
+wdir=$5/local/$corpus
 conf=local/beamformit/conf/beamformit.cfg
 
 mkdir -p $odir

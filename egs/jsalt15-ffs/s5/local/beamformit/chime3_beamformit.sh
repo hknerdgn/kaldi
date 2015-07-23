@@ -35,12 +35,12 @@ echo "$0 $@"  # Print the command line for logging
 . parse_options.sh || exit 1;
 
 
-if [ $# != 3 ]; then
-   echo "Usage: chime3_bf.sh [options] <corpus-dir> <enh> <tset>"
+if [ $# != 4 ]; then
+   echo "Usage: chime3_bf.sh [options] <corpus-dir> <enh> <tset> <odir>"
    echo "... where <corpus-dir> is assumed to be the directory where the"
    echo " original chime3 corpus is located."
    echo "... <enh> is a keyword describing the output enhancement"
-    echo "... <tset> is the target test set (dt05/et05)"
+   echo "... <tset> is the target test set (dt05/et05)"
    echo "e.g.: local/beaformit/chime3_bf.sh /export/CHiME3 bf5 dt05"
    echo ""
    echo ""
@@ -54,16 +54,17 @@ fi
 sdir=$1
 enh=$2
 tset=$3
+odir=$4/data/audio/16kHz/isolated
 
 [ -f ./cmd.sh ] && . ./cmd.sh;
 
 cmd=$bf_cmd
 echo $cmd
 
-odir=$resdir/data_${enh}/chime3/data/audio/16kHz/isolated
+
 idir=$sdir/data/audio/16kHz/isolated
 #./enhanced_wav/${sdir_name}_beamformed_1sec_scwin_ch1_3-6
-wdir=data_${enh}/chime3/local/$tset
+wdir=$4/local/$tset
 conf=local/beamformit/conf/beamformit.cfg
 
 mkdir -p $odir

@@ -14,8 +14,8 @@
 
 
 do_ami=true #true/false
-do_chime3=true #true/fasle
-do_reverb=true #true/false
+do_chime3=false #true/fasle
+do_reverb=false #true/false
 
 stage=4
 
@@ -42,9 +42,9 @@ enhan_ami=wpe8
 enhan_chime3=wpe6
 enhan_reverb=wpe8
 
-AMI_ENH_CORPUS=data_wpe8 #/ami
-CHIME3_ENH_CORPUS=data_wpe6 #/chime3
-REVERB_ENH_CORPUS=data_wpe8 #/reverb
+AMI_ENH_CORPUS=data/ami/$enhan_ami/wav
+CHIME3_ENH_CORPUS=data/$enhan_chime3/wpe6/wav
+REVERB_ENH_CORPUS=data/$enhan_reverb/wpe8/wav
 
 if [ $stage -le 0 ]; then
 
@@ -81,9 +81,15 @@ wait
 enhan_ami=wpe8_bf
 enhan_chime3=wpe6_bf
 enhan_reverb=wpe8_bf
+
+AMI_ENH_CORPUS=`pwd`/data/ami/${enhan_ami}/wav
+CHIME3_ENH_CORPUS=`pwd`/data/chime3/${enhan_chime3}/wav #/data/audio/16kHz/isolated
+REVERB_ENH_CORPUS=`pwd`/data/reverb/${enhan_reverb}/wav
+
 if [ $stage -le 1 ]; then
 
     pushd local/beamformit
+    ### NEED TO BE IMPLEMENTED!!!
     install_beamformit.sh
     popd
 
@@ -91,32 +97,27 @@ if [ $stage -le 1 ]; then
     if [ $do_ami == true ];then
 	AMI_BF_IN_CORPUS=data_wpe8
 	echo Performing beamformit for AMI
-	local/beamformit/ami_beamformit.sh --beamformit-dir --nj 1 $beamformit_dir $AMI_BF_IN_CORPUS $enhan_ami
+	local/beamformit/ami_beamformit.sh --beamformit-dir $beamformit_dir --nj 1 $AMI_BF_IN_CORPUS $enhan_ami $AMI_ENH_CORPUS
     fi
 
     if [ $do_chime3 == true ];then
 	CHIME3_BF_IN_CORPUS=data_wpe6
 	echo Performing BEAMFORMIT for CHiME3
 	local/beamformit/chime3_beamformit.sh --beamformit-dir $beamformit_dir --nj 1 $CHIME3_BF_IN_CORPUS \
-	     $enhan_chime3 dt05
+	     $enhan_chime3 dt05 $CHIME3_ENH_CORPUS 
 	local/beamformit/chime3_beamformit.sh --beamformit-dir $beamformit_dir --nj 1 $CHIME3_BF_IN_CORPUS \
-	     $enhan_chime3 et05
+	     $enhan_chime3 et05 $CHIME3_ENH_CORPUS 
     fi
     
     if [ $do_reverb == true ];then
 	REVERB_BF_IN_CORPUS=data_wpe8
 	echo Performing BEAMFORMIT for REVERB
 	local/beamformit/reverb_beamformit.sh --beamformit-dir $beamformit_dir --nj 1 $REVERB_BF_IN_CORPUS/MC_WSJ_AV_Dev \
-	     $enhan_reverb dt RealData 
+	     $enhan_reverb dt RealData $REVERB_ENH_CORPUS
 	local/beamformit/reverb_beamformit.sh --beamformit-dir $beamformit_dir --nj 1 $REVERB_BF_IN_CORPUS/MC_WSJ_AV_Eval \
-	     $enhan_reverb et RealData 
+	     $enhan_reverb et RealData $REVERB_ENH_CORPUS
     fi
 fi
-
-AMI_ENH_CORPUS=`pwd`/data_wpe8_bf/ami
-CHIME3_ENH_CORPUS=`pwd`/data_wpe6_bf/chime3/data/audio/16kHz/isolated
-REVERB_ENH_CORPUS=`pwd`/data_wpe8_bf/reverb
-
 
 # Data preparation for decoding
 if [ $stage -le 2 ]; then
@@ -124,8 +125,8 @@ if [ $stage -le 2 ]; then
 	echo do ami
 
 	mkdir -p data_${enhan_ami}/ami/local/annotations/
-	cp ${AMI_EXP_DIR}/data/local/annotations/dev.txt data_${enhan_ami}/ami/local/annotations/
-	cp ${AMI_EXP_DIR}/data/local/annotations/eval.txt data_${enhan_ami}/ami/local/annotations/
+	cp ${AMI_EXP_DIR}/data/local/annotations/dev.txt data/ami/${enhan_ami}/local/annotations/
+	cp ${AMI_EXP_DIR}/data/local/annotations/eval.txt data/ami/${enhan_ami}/local/annotations/
 	
 	if [[ $multi_mics == true ]];then
 	    micid=1
@@ -217,9 +218,9 @@ if [ $stage -le 3 ]; then
 	
 	for tset in dev eval; do
 
-	    dataset=data_$enhan_ami/ami/$tset
-	    fmllr_wrk_dir=${fmllr_decode_dir}/decode_${tset}_$enhan_ami
-	    fmllr_data_dir=${fmllr_data}/$enhan_ami/${tset}
+	    dataset=data/ami/$enhan_ami/$tset
+	    fmllr_wrk_dir=${fmllr_decode_dir}/decode_ami_${lm_suffix}_${tset}_$enhan_ami
+	    fmllr_data_dir=${fmllr_data}/ami/$enhan_ami/${tset}
 	    mkdir -p $fmllr_wrk_dir
 	    mkdir -p $fmllr_data_dir
 
@@ -250,9 +251,9 @@ if [ $stage -le 3 ]; then
 	
 	for tset in dt et; do
 
-	    dataset=data/${tset}05_real_$enhan_chime3
-	    fmllr_wrk_dir=${fmllr_decode_dir}/decode_${tset}05_real_$enhan_chime3
-	    fmllr_data_dir=${fmllr_data}/${tset}05_real_${enhan_chime3}
+	    dataset=data/chime3/$enhan_chime3/${tset}05_real
+	    fmllr_wrk_dir=${fmllr_decode_dir}/decode_chime3_${lmsuffix}_${tset}05_real_$enhan_chime3
+	    fmllr_data_dir=${fmllr_data}/chime3/${enhan_chime3}/${tset}05_real
 	    
 	    mkdir -p $fmllr_wrk_dir
 	    mkdir -p $fmllr_data_dir
@@ -276,7 +277,9 @@ if [ $stage -le 3 ]; then
 	echo feature extraction REVERB task
     
 	for tset in dt et; do
-	    for dataset in `ls -d data/REVERB_Real_${tset}_${enhan_reverb}/RealData_${tset}*` ; do
+	    #### !!! This should be checked !!!!! ####
+	    #### Potential fix needed here #####
+	    for dataset in `ls -d data/reverb/${enhan_reverb}/RealData_${tset}*` ; do
 		echo $dataset
 
 		lm_suffix=lm_tg_5k
@@ -288,8 +291,8 @@ if [ $stage -le 3 ]; then
 			     $AMI_EXP_DIR/exp/$mic/tri4a $graph_dir
 
 
-		fmllr_wrk_dir=${fmllr_decode_dir}/decode_`basename $dataset`_$enhan_reverb
-		fmllr_data_dir=${fmllr_data}/`basename $dataset`_$enhan_reverb
+		fmllr_wrk_dir=${fmllr_decode_dir}/decode_reverb_${lm_suffix}_`basename $dataset`_$enhan_reverb
+		fmllr_data_dir=${fmllr_data}/reverb/$enhan_reverb/`basename $dataset`
 
 		echo $fmllr_wrk_dir
 		mkdir -p $fmllr_wrk_dir		
@@ -333,8 +336,8 @@ if [ $stage -le 4 ]; then
 	
 	for tset in dev eval; do
 
-	    decode_dir=${dnn_decode}/decode_${tset}_${lm_suffix}_${enhan_ami}
-	    fmllr_data_dir=${fmllr_data}/$enhan_ami/${tset}
+	    decode_dir=${dnn_decode}/decode_ami_${tset}_${lm_suffix}_${enhan_ami}
+	    fmllr_data_dir=${fmllr_data}/ami/$enhan_ami/${tset}
 	    scoring_opts=ami
     
             # DNN Decoding
@@ -371,8 +374,8 @@ if [ $stage -le 4 ]; then
 	
 	for tset in dt et; do
 
-	    decode_dir=${dnn_decode}/decode_tgpr_5k_${tset}05_real_${enhan_chime3}
-	    fmllr_data_dir=${fmllr_data}/${tset}05_real_${enhan_chime3}
+	    decode_dir=${dnn_decode}/decode_chime3_${lm_suffix}_${tset}05_real_${enhan_chime3}
+	    fmllr_data_dir=${fmllr_data}/chime3/${enhan_chime3}/${tset}05_real
 
 	    scoring_opts=chime3
     
@@ -404,8 +407,8 @@ if [ $stage -le 4 ]; then
 		graph_dir=${fmllr_decode_dir}/graph_${lm_suffix}
 
 
-		decode_dir=${dnn_decode}/decode_tg_5k_`basename $dataset`_$enhan_reverb
-		fmllr_data_dir=${fmllr_data}/`basename $dataset`_$enhan_reverb
+		decode_dir=${dnn_decode}/decode_reverb_${lm_suffix}_`basename $dataset`_$enhan_reverb
+		fmllr_data_dir=${fmllr_data}/reverb/${enhan_reverb}/`basename $dataset`_$enhan_reverb
 
 	
                 # DNN Decoding

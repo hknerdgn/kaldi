@@ -46,7 +46,9 @@ echo $trans_dir
 
 echo "extract 5th channel (CH5.wav, the center bottom edge in the front of the tablet) for noisy data"
 
-dir=`pwd`/data/local/data
+#dir=`pwd`/data/local/data
+
+dir=`pwd`/data/chime3/$processing/local #/data
 lmdir=`pwd`/data/local/nist_lm
 mkdir -p $dir $lmdir
 local=`pwd`/local

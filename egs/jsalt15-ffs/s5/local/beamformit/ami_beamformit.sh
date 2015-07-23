@@ -10,7 +10,6 @@
 wiener_filtering=false
 nj=1 #4
 nbmics=8
-resdir=.
 beamformit_dir=local/beamformit/beamformit
 # End configuration section
 
@@ -20,9 +19,9 @@ echo "$0 $@"  # Print the command line for logging
 
 . parse_options.sh || exit 1;
 
-if [ $# != 2 ]; then
-   echo "Wrong #arguments ($#, expected 2)"
-   echo "Usage: steps/ami_beamform.sh [options] <corpus-dir> <enh>"
+if [ $# != 3 ]; then
+   echo "Wrong #arguments ($#, expected 3)"
+   echo "Usage: steps/ami_beamform.sh [options] <corpus-dir> <enh> <out-dir>"
    echo "... where <corpus-dir> is assumed to be the directory where the"
    echo " ami corpus is located."
    echo "... <enh> is a keyword describing the output enhancement"
@@ -40,8 +39,8 @@ cmd=$bf_cmd
 
 sdir=$1
 enh=$2
-odir=$resdir/data_$enh/ami
-wdir=data_$enh/ami/local/$enh
+odir=$3 
+wdir=$odir/local
 
 
 set -e 
