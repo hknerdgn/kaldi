@@ -42,7 +42,8 @@ class Istft {
 
   /// Will throw exception on failure (e.g. if features are too short)
   void Compute(const Matrix<BaseFloat> &input,
-               Matrix<BaseFloat> *wave);
+               Matrix<BaseFloat> *wave,
+	       int32 wav_length = -1);
 
  private:
   StftOptions opts_;

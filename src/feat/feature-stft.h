@@ -51,7 +51,7 @@ struct StftOptions {
     po->Register("output-type", &output_type,
                  "Valid types are real_and_imaginary (default), amplitude_and_phase, amplitude, phase");
     po->Register("output-layout", &output_layout,
-                 "block: RE RE ... IM IM ... , interleaved: RE IM RE IM ...
+                 "block: RE RE ... IM IM ... , interleaved: RE IM RE IM ...");
   }
 };
 

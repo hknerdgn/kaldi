@@ -204,6 +204,7 @@
 /src/featbin/subsample-feats
 /src/featbin/wav-to-duration
 /src/featbin/replicate-fixedlength-feats
+/src/featbin/compute-inverse-stft
 
 # /src/fgmmbin/
 /src/fgmmbin/.depend.mk

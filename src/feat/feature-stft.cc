@@ -61,7 +61,7 @@ void Stft::Compute(const VectorBase<BaseFloat> &wave,
     for (int32 r = 0; r < rows_out; r++) {
         // Cut the window, apply window function
         ExtractWindow(wave, r, opts_.frame_opts, feature_window_function_,
-                      &window, (opts_.add_log_energy && opts_.raw_energy ? &log_energy : NULL));
+                      &window, NULL);
         // Compute energy after window function (not the raw one)
 
         if (srfft_ != NULL)  // Compute FFT using split-radix algorithm.
@@ -119,7 +119,7 @@ void Stft::Compute(const VectorBase<BaseFloat> &wave,
                 temp(kk++)=spectrum1(i);
             for (int i=0; i< spectrum2.Dim(); i++)
                 temp(kk++)=spectrum2(i);
-        } else if (opts_output_layout == "interleaved" ) {
+        } else if (opts_.output_layout == "interleaved" ) {
             for (int i=0; i< spectrum1.Dim(); i++) {
                 temp(kk++)=spectrum1(i);
                 temp(kk++)=spectrum2(i);

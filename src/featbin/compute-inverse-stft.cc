@@ -1,4 +1,4 @@
-// featbin/stft-to-wav.cc
+// featbin/compute-inverse-stft.cc
 
 // Copyright 2009-2012  Microsoft Corporation
 //                      Johns Hopkins University (author: Daniel Povey)
@@ -30,7 +30,8 @@ int main(int argc, char *argv[]) {
     using namespace kaldi;
     const char *usage =
         "Convert stft feature files to wave files by inverse fft and overlap-add.\n"
-        "Usage:  stft-to-wav [options...] <feats-rspecifier> <wav-wspecifier>\n";
+        "Usage:  compute-inverse-stft [options...] <feats-rspecifier> <wav-wspecifier>\n";
+    std::string wav_durations_rspecifier;
 
     // construct all the global objects
     ParseOptions po(usage);
@@ -40,6 +41,7 @@ int main(int argc, char *argv[]) {
     // Register the option struct
     stft_opts.Register(&po);
     // Register the options
+    po.Register("wav-durations", &wav_durations_rspecifier, "Durations for output wave files ");
 
     // OPTION PARSING ..........................................................
     //
@@ -59,31 +61,38 @@ int main(int argc, char *argv[]) {
     Istft istft(stft_opts);
 
     SequentialBaseFloatMatrixReader reader(feats_rspecifier);
+    RandomAccessBaseFloatReader dur_reader(wav_durations_rspecifier);
 
     TableWriter<WaveHolder> writer(wav_wspecifier);
 
-    //BaseFloat samp_freq = stft_opts.frame_opts.samp_freq;
     //int32 frame_shift_samp = static_cast<int32>(samp_freq * 0.001 * stft_opts.frame_opts.frame_shift_ms);
-    
+    int32 samp_rate = stft_opts.frame_opts.samp_freq;
+
     int32 num_utts = 0, num_success = 0;
     for (; !reader.Done(); reader.Next()) {
       num_utts++;
       std::string utt = reader.Key();
-      Matrix<BaseFloat> stftdata_matrix(reader.Value());
-      //int32 num_frames = stftdata_matrix.NumCols();
-      //int32 window_size = stftdata_matrix.NumRows();
-      //int32 wav_length = frame_shift_samp * (num_frames-1) + window_size;
+      const Matrix<BaseFloat> &stftdata_matrix(reader.Value());
 
-      Matrix<BaseFloat> wave_vector; // no init here, Matrix with single row because WaveData uses that
-      istft.Compute(stftdata_matrix, &wave_vector);
+      Matrix<BaseFloat> wave_matrix; // no init here, Matrix with single row because WaveData uses that
 
-      //wavdata_matrix.SetZero(); // initialize to zeros
-      // fill in the matrix from inverse stft and overlap-add
+      int32 wav_duration_samples;  // Work out VTLN warp factor.
+      if (wav_durations_rspecifier != "") {
+        if (!dur_reader.HasKey(utt)) {
+          KALDI_WARN << "No duration entry for utterance-id "
+                     << utt;
+          continue;
+        }
+        wav_duration_samples = samp_rate * dur_reader.Value(utt);
+      } else {
+        wav_duration_samples = -1; // do not specify duration
+      }
 
-      WaveData wave(samp_freq, wave_vector);
+      istft.Compute(stftdata_matrix, &wave_matrix, wav_duration_samples);
+
+      WaveData wave(samp_rate, wave_matrix);
       writer.Write(utt, wave); // write data in wave format.
       num_success++;
-
     }
   return 0;
   } catch(const std::exception &e) {

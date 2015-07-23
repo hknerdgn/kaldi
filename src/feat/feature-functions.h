@@ -157,10 +157,11 @@ void ExtractWindow(const VectorBase<BaseFloat> &wave,
 // OverlapAdd accumulates the waveform from a windowed frame.
 // It attempts to reverse pre-emphasis but cannot reverse dither or DC removal
 void OverlapAdd(const VectorBase<BaseFloat> &window,
-                   int32 f,  // with 0 <= f < NumFrames(feats, opts)
+                   int32 start,  // start index of the segment, if negative will be made 0
+                   int32 wav_length,  // total length, if window goes out, it will be trimmed
                    const FrameExtractionOptions &opts,
                    const FeatureWindowFunction &window_function,
-                   Vector<BaseFloat> *wave);
+                   Matrix<BaseFloat> *wave);
 
 // ExtractWaveformRemainder is useful if the waveform is coming in segments.
 // It extracts the bit of the waveform at the end of this block that you

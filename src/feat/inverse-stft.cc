@@ -19,7 +19,6 @@
 
 
 #include "feat/inverse-stft.h"
-#include "feat/compute-stft.h"
 
 
 namespace kaldi {
@@ -38,16 +37,18 @@ Istft::~Istft() {
 }
 
 void Istft::Compute(const Matrix<BaseFloat> &input,
-		   Matrix<BaseFloat> *wave_out) {
+		   Matrix<BaseFloat> *wave_out,
+		   int32 wav_length) {
     KALDI_ASSERT(wave_out != NULL);
 
     int32 num_frames = input.NumRows();
     int32 input_feat_size = input.NumCols();
     int32 window_size = opts_.frame_opts.PaddedWindowSize();
+    int32 frame_length = opts_.frame_opts.WindowSize();
     BaseFloat samp_freq = opts_.frame_opts.samp_freq;
     int32 frame_shift_samp = static_cast<int32>(samp_freq * 0.001 * opts_.frame_opts.frame_shift_ms);
 
-    int32 wav_length = frame_shift_samp * (num_frames-1) + window_size;
+    if (wav_length < 0) wav_length = frame_shift_samp * (num_frames-1) + window_size;
     // Get dimensions of output wav and allocate space
     wave_out->Resize(1,wav_length); // write single channel, so single row
     wave_out->SetZero(); // set to zero to initialize overlap-add correctly
@@ -55,38 +56,39 @@ void Istft::Compute(const Matrix<BaseFloat> &input,
     KALDI_ASSERT(window_size+2 == input_feat_size);
     KALDI_ASSERT(opts_.output_type == "real_and_imaginary");
 
-    // Buffers
-    Vector<BaseFloat> window;  // windowed waveform.
+    int32 Nfft = input.NumCols()-2; // also equal to window_size
 
     // Compute from all the frames, r is frame index..
     for (int32 r = 0; r < num_frames; r++) {
 
-	window.CopyRowFromMat(input,r);
-	int32 Nfft = window.Dim()-2;
 	Vector<BaseFloat> temp(Nfft);
 
 	// convert from layouts to standard fft layout
-	temp(0)=window(0);
+	temp(0)=input(r,0);
 	int k=2;
 	if (opts_.output_layout == "block") {
-		temp(1)=window(Nfft/2);
-		for (i=2;i<Nfft/2-1; i++) {
-			temp(k++)=window(i);
-			temp(k++)=window(i+Nfft/2+1);
+		temp(1)=input(r,Nfft/2);
+		for (int32 i=1;i<Nfft/2-1; i++) { // start with first nonzero freq. at position 1
+			temp(k++)=input(r,i);
+			temp(k++)=input(r,i+Nfft/2+1);
 		}
 	} else if (opts_.output_layout == "interleaved") {
-		temp(1)=window(Nfft);
-		for (i=2;i<Nfft-1; i+=2) {
-			temp(k++)=window(i);
-			temp(k++)=window(i+1);
+		temp(1)=input(r,Nfft);
+		for (int32 i=2;i<Nfft-1; i+=2) { // start with first nonzero freq. now at position 2 (due to interleaved)
+			temp(k++)=input(r,i);
+			temp(k++)=input(r,i+1);
 		}
 	}
 
         if (srfft_ != NULL)  // Compute inverse FFT using split-radix algorithm.
-            srfft_->Compute(window.Data(), false);
+            srfft_->Compute(temp.Data(), false);
         else  // An alternative algorithm that works for non-powers-of-two
-            RealFft(&window, false);
-        OverlapAdd(window, r, opt_.frame_opts, feature_window_function_, &wave_out);
+            RealFft(&temp, false);
+	temp.Scale(1/static_cast<BaseFloat>(Nfft));
+	int32 start = r*frame_shift_samp;
+	if (!opts_.frame_opts.snip_edges) 
+		start = -frame_length/2+frame_shift_samp/2+r*frame_shift_samp;
+        OverlapAdd(temp, start, wav_length, opts_.frame_opts, feature_window_function_, wave_out);
     }
 } //Istft::Compute
 }  // namespace kaldi

@@ -181,24 +181,28 @@ void ExtractWindow(const VectorBase<BaseFloat> &wave,
 // typically: allocate and initialize wave to zero and call this function
 // for each frame similar to ExtractWindow
 void OverlapAdd(const VectorBase<BaseFloat> &window,
-                   int32 f,  // with 0 <= f < NumFrames(feats, opts)
+                   int32 start,  // start sample
+                   int32 wav_length,  // if exceeds, will be trimmed
                    const FrameExtractionOptions &opts,
                    const FeatureWindowFunction &window_function,
-                   Vector<BaseFloat> *wave) {
+                   Matrix<BaseFloat> *wave) {
   int32 frame_shift = opts.WindowShift();
   int32 frame_length = window.Dim();
-  int32 start = frame_shift*f, end = start + frame_length;
+  int32 start_output = start;
+  if (start_output < 0) start_output = 0;
+  int32 end = start + frame_length;
+  if (end > wav_length) end = wav_length;
   KALDI_ASSERT(frame_shift != 0 && frame_length != 0);
   KALDI_ASSERT(window_function.window.Dim() <= frame_length);
-  KALDI_ASSERT((*wave).Dim() >= end);
+  KALDI_ASSERT((*wave).NumCols() >= end);
   BaseFloat factor = static_cast<BaseFloat>(frame_shift) / static_cast<BaseFloat>(window_function.window.Sum());
 
-  SubVector<BaseFloat> window_part(*window, 0, frame_length);
+  Vector<BaseFloat> window_part(window);
   if (opts.preemph_coeff != 0.0)
     Deemphasize(&window_part, opts.preemph_coeff); // actually pre-emphasis and de-emphasis should be done before framing and after forming the full signal, but since it was done frame-wise in ExtractWindow function, we also revert it this way
 
-  for (int32 k=start, int32 j=0; j< frame_length, k<end; k++,j++)
-    (*wave)(k) += factor * window_part[j];
+  for (int32 k=start_output; k<end; k++)
+    (*wave)(0,k) += factor * window_part(k-start); // write into first row of Matrix wave
 }
 
 void ExtractWaveformRemainder(const VectorBase<BaseFloat> &wave,
