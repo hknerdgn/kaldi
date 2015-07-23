@@ -161,6 +161,7 @@
 # /src/featbin/
 /src/featbin/.depend.mk
 /src/featbin/compute-spectrogram-feats
+/src/featbin/compute-stft-feats
 /src/featbin/extract-feature-segments
 /src/featbin/compute-mfcc-feats
 /src/featbin/compute-fbank-feats
@@ -202,6 +203,8 @@
 /src/featbin/select-feats
 /src/featbin/subsample-feats
 /src/featbin/wav-to-duration
+/src/featbin/replicate-fixedlength-feats
+/src/featbin/compute-inverse-stft
 
 # /src/fgmmbin/
 /src/fgmmbin/.depend.mk
@@ -217,6 +220,8 @@
 /src/fgmmbin/fgmm-global-mixdown
 /src/fgmmbin/fgmm-global-gselect-to-post
 /src/fgmmbin/fgmm-global-info
+/src/fgmmbin/fgmm-global-acc-stats-post
+/src/fgmmbin/fgmm-global-init-from-accs
 
 # /src/fstbin/
 /src/fstbin/.depend.mk
@@ -391,6 +396,7 @@
 /src/kwsbin/kws-search
 /src/kwsbin/lattice-to-kws-index
 /src/kwsbin/transcripts-to-fsts
+/src/kwsbin/compute-atwv
 
 # /src/lat/
 /src/lat/.depend.mk
@@ -487,6 +493,7 @@
 /src/nnetbin/nnet-train-mpe-sequential
 /src/nnetbin/nnet-train-perutt
 /src/nnetbin/transf-to-nnet
+/src/nnetbin/cuda-gpu-available
 
 # /src/nnet2/
 /src/nnet2/.depend.mk

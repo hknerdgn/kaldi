@@ -2,6 +2,7 @@
 
 // Copyright 2009-2011  Karel Vesely;  Petr Motlicek;  Microsoft Corporation
 //                2014  IMSL, PKU-HKUST (author: Wei Shi)
+//                2015  Hakan Erdogan (added OverlapAdd)
 
 // See ../../COPYING for clarification regarding multiple authors
 //
@@ -107,7 +108,7 @@ struct FrameExtractionOptions {
                  "Subtract mean from waveform on each frame");
     po->Register("dither", &dither, "Dithering constant (0.0 means no dither)");
     po->Register("window-type", &window_type, "Type of window "
-                 "(\"hamming\"|\"hanning\"|\"povey\"|\"rectangular\")");
+                 "(\"hamming\"|\"hanning\"|\"sine\"|\"povey\"|\"rectangular\")");
     po->Register("round-to-power-of-two", &round_to_power_of_two,
                  "If true, round window size to power of two.");
     po->Register("snip-edges", &snip_edges,
@@ -152,6 +153,16 @@ void ExtractWindow(const VectorBase<BaseFloat> &wave,
                    const FeatureWindowFunction &window_function,
                    Vector<BaseFloat> *window,
                    BaseFloat *log_energy_pre_window = NULL);
+
+// OverlapAdd aims to reverse ExtractWindow to reconstruct a wave signal
+// OverlapAdd accumulates the waveform from a windowed frame.
+// It attempts to reverse pre-emphasis but cannot reverse dither or DC removal
+void OverlapAdd(const VectorBase<BaseFloat> &window,
+                   int32 start,  // start index of the segment, if negative will be made 0
+                   int32 wav_length,  // total length, if window goes out, it will be trimmed
+                   const FrameExtractionOptions &opts,
+                   const FeatureWindowFunction &window_function,
+                   Matrix<BaseFloat> *wave);
 
 // ExtractWaveformRemainder is useful if the waveform is coming in segments.
 // It extracts the bit of the waveform at the end of this block that you
