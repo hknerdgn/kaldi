@@ -62,7 +62,19 @@ dataset=$4
 cmd=$bf_cmd
 echo $cmd
 
-odir=$resdir/data_${enh}/reverb
+
+corpus=
+if [ $dataset == RealData ]; then
+    if [ $tset == dt ]; then
+	corpus=MC_WSJ_AV_Dev
+    else
+	corpus=MC_WSJ_AV_Eval
+    fi
+else
+    corpus=REVERB_WSJCAM0_$tset
+fi
+
+odir=$resdir/data_${enh}/reverb/$corpus
 
 wdir=data_${enh}/reverb/local/$tset
 conf=local/beamformit/conf/beamformit.cfg

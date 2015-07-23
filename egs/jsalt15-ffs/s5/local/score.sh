@@ -6,28 +6,38 @@
 # Apache 2.0
 
 if [ $# -le 0 ]; then
-    echo "Usage: local/score.sh <task> [options]" && exit;
+    echo "Usage: local/score.sh --task [options]" && exit;
 fi
 
 task=$1
+echo "$0 $@"  # Print the command line for logging
+
 
 # pass the arguments for scoring unchanged!
 orig_args=
-for ((argpos=2; argpos<$#; argpos++)); do
-    x=$((arpos))
-    orig_args="$orig_args '$x'";
+shift 1
+while true; do
+  [ $# -le 0 ] && break; 
+    orig_args="$orig_args $1";
+    echo $1
+    shift
 done
 
+echo $orig_args
+echo
+echo $task
 
-task=$1
-if [ $task == ami ]; then
-    score_ami.sh $orig_args
+if [[ $task == "ami" ]]; then
+    echo local/score_ami.sh $orig_args
+    local/score_ami.sh $orig_args
 fi
 
-if [ $task == chime3 ]; then
-    score_chime3.sh $orig_args
+if [ $task == "chime3" ]; then
+    echo local/score_chime3.sh $orig_args
+    local/score_chime3.sh $orig_args
 fi
 
-if [ $task == reverb ]; then
-    score_reverb.sh $orig_args
+if [ $task == "reverb" ]; then
+    echo local/score_reverb.sh $orig_args
+    local/score_reverb.sh $orig_args
 fi

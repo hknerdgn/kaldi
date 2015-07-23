@@ -73,15 +73,20 @@ fi
 steps/make_mfcc.sh --nj $nj --cmd "$train_cmd" $data_dir $data_dir/log $data_dir/data
 steps/compute_cmvn_stats.sh $data_dir $data_dir/log $data_dir/data
 
+echo feature extraction done
 
-echo 
-echo after feature extraction
 
-wait
 # Create fMLLRed features
 
 steps/decode_fmllr.sh --cmd "$decode_cmd" --nj $nj --num-threads $num_threads \
                       --parallel-opts '-pe smp $num_threads' \
-                      $graph_dir $data_dir $fmllr_wrk_dir &
+                      $graph_dir $data_dir $fmllr_wrk_dir 
 
-echo after decode fmllr
+echo fmllr decoding done
+
+steps/nnet/make_fmllr_feats.sh --nj 1 --cmd "$train_cmd" \
+                               --transform-dir $fmllr_wrk_dir \
+                               $fmllr_data_dir $data_dir $gmm_dir $fmllr_data_dir/log \
+                               $fmllr_data_dir/data || exit 1
+
+echo Making FMLLR features generated
