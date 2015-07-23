@@ -40,7 +40,7 @@ scp=$1
 corpusdir=$2
 resdir=$3
 nbmics=$4
-array_name=$5
+arrayname=$5
 
 matlab=matlab
 

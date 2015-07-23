@@ -79,7 +79,7 @@ for cond in $conds; do
     logname=${tset}_${cond}
     log=$logdir/$logname.log
     echo $log
-    echo $cmd $log local/wpe/run_wpe.sh `pwd`/$scp $corpusdir $resdir $nbmics $arrayname
+    echo $cmd $log local/wpe/run_wpe.sh `pwd`/$scp $corpusdir `pwd`/$resdir $nbmics $arrayname
     
-    $cmd $log local/wpe/run_wpe.sh `pwd`/$scp $corpusdir $resdir $nbmics $arrayname &
+    $cmd $log local/wpe/run_wpe.sh `pwd`/$scp $corpusdir `pwd`/$resdir $nbmics $arrayname &
 done
