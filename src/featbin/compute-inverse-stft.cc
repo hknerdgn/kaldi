@@ -1,8 +1,6 @@
 // featbin/compute-inverse-stft.cc
 
-// Copyright 2009-2012  Microsoft Corporation
-//                      Johns Hopkins University (author: Daniel Povey)
-// Hakan Erdogan
+// Copyright 2015  Hakan Erdogan
 
 // See ../../COPYING for clarification regarding multiple authors
 //

@@ -2,6 +2,7 @@
 
 // Copyright 2009-2011  Karel Vesely;  Petr Motlicek;  Microsoft Corporation
 //                2014  IMSL, PKU-HKUST (author: Wei Shi)
+//                2015  Hakan Erdogan (added OverlapAdd)
 
 // See ../../COPYING for clarification regarding multiple authors
 //

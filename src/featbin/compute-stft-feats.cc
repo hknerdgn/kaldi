@@ -1,7 +1,6 @@
 // featbin/compute-stft-feats.cc
 
-// Copyright 2009-2011  Microsoft Corporation
-//           2015 Hakan Erdogan
+// Copyright 2015 Hakan Erdogan
 
 // See ../../COPYING for clarification regarding multiple authors
 //

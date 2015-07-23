@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# copyright 2015 Hakan Erdogan
+
 echo "------"
 echo this script firsts extracts the 100th frame in each utterance and 
 echo concatenates this frame with every other frame in the feats.ark file
