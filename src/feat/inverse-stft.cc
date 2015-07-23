@@ -54,7 +54,7 @@ void Istft::Compute(const Matrix<BaseFloat> &input,
     wave_out->SetZero(); // set to zero to initialize overlap-add correctly
 
     KALDI_ASSERT(window_size+2 == input_feat_size);
-    KALDI_ASSERT(opts_.output_type == "real_and_imaginary");
+    KALDI_ASSERT(opts_.output_type == "real_and_imaginary" || opts_.output_type == "amplitude_and_phase");
 
     int32 Nfft = input.NumCols()-2; // also equal to window_size
 
@@ -63,20 +63,40 @@ void Istft::Compute(const Matrix<BaseFloat> &input,
 
 	Vector<BaseFloat> temp(Nfft);
 
-	// convert from layouts to standard fft layout
-	temp(0)=input(r,0);
+	// convert from layouts to standard fft layout which is as follows
+	// DC, Nyquist, RE, IM, RE, IM, ...
 	int k=2;
 	if (opts_.output_layout == "block") {
+		if (opts_.output_type == "amplitude_and_phase") {
+		temp(0)=input(r,0) * std::cos(input(r,Nfft/2+1));
+		temp(1)=input(r,Nfft/2) * std::cos(input(r,Nfft+1));
+		for (int32 i=1;i<Nfft/2-1; i++) { // start with first nonzero freq. at position 1
+			temp(k++)=input(r,i) * std::cos(input(r,i+Nfft/2+1));
+			temp(k++)=input(r,i) * std::sin(input(r,i+Nfft/2+1));
+		}
+		} else {
+		temp(0)=input(r,0);
 		temp(1)=input(r,Nfft/2);
 		for (int32 i=1;i<Nfft/2-1; i++) { // start with first nonzero freq. at position 1
 			temp(k++)=input(r,i);
 			temp(k++)=input(r,i+Nfft/2+1);
 		}
+		}
 	} else if (opts_.output_layout == "interleaved") {
+		if (opts_.output_type == "amplitude_and_phase") {
+		temp(0)=input(r,0) * std::cos(input(r,1));
+		temp(1)=input(r,Nfft) * std::cos(input(r,Nfft+1));
+		for (int32 i=2;i<Nfft-1; i+=2) { // start with first nonzero freq. now at position 2 (due to interlaved)
+			temp(k++)=input(r,i) * std::cos(input(r,i+1));
+			temp(k++)=input(r,i) * std::sin(input(r,i+1));
+		}
+		} else {
+		temp(0)=input(r,0);
 		temp(1)=input(r,Nfft);
 		for (int32 i=2;i<Nfft-1; i+=2) { // start with first nonzero freq. now at position 2 (due to interleaved)
 			temp(k++)=input(r,i);
 			temp(k++)=input(r,i+1);
+		}
 		}
 	}
 

@@ -17,6 +17,10 @@ cat << EOF > $conf
 --window-type=hamming
 --round-to-power-of-two=true
 --snip-edges=false
+--output_type=real_and_imaginary
+#--output_type=amplitude_and_phase
+--output_layout=block
+#--output_layout=interleaved
 EOF
 
 cat << EOF > $inwavscp

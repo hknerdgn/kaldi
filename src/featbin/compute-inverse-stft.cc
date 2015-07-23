@@ -76,7 +76,7 @@ int main(int argc, char *argv[]) {
 
       Matrix<BaseFloat> wave_matrix; // no init here, Matrix with single row because WaveData uses that
 
-      int32 wav_duration_samples;  // Work out VTLN warp factor.
+      int32 wav_duration_samples;  // get wav durations
       if (wav_durations_rspecifier != "") {
         if (!dur_reader.HasKey(utt)) {
           KALDI_WARN << "No duration entry for utterance-id "
@@ -85,7 +85,7 @@ int main(int argc, char *argv[]) {
         }
         wav_duration_samples = samp_rate * dur_reader.Value(utt);
       } else {
-        wav_duration_samples = -1; // do not specify duration
+        wav_duration_samples = -1; // do not specify duration and let istft figure it out
       }
 
       istft.Compute(stftdata_matrix, &wave_matrix, wav_duration_samples);
