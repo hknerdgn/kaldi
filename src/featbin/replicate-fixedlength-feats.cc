@@ -98,7 +98,7 @@ int main(int argc, char *argv[]) {
       int32 j=0;
       
       while(k < num_frames) {
-	if (j>n) j=0; 
+	if (j>=n) j=0; 
 	int32 i = offset + j;
         SubVector<BaseFloat> src(feats, i), dest(output, k);
         dest.CopyFromVec(src);
