@@ -1,7 +1,6 @@
 // feat/feature-stft.h
 
-// Copyright 2009-2012  Karel Vesely
-// Copyright 2012  Navdeep Jaitly
+// Copyright 2015  Hakan Erdogan
 
 // See ../../COPYING for clarification regarding multiple authors
 //

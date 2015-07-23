@@ -1,7 +1,6 @@
-// featbin/subsample-feats.cc
+// featbin/replicate-fixedlength-feats.cc
 
-// Copyright 2012-2014  Johns Hopkins University (author: Daniel Povey)
-// 2015 Hakan Erdogan
+// Copyright 2015  Hakan Erdogan
 
 // See ../../COPYING for clarification regarding multiple authors
 //
