@@ -62,7 +62,14 @@ void Preemphasize(VectorBase<BaseFloat> *waveform, BaseFloat preemph_coeff) {
   (*waveform)(0) -= preemph_coeff * (*waveform)(0);
 }
 
-
+// reverses Preemphasis
+void Deemphasize(VectorBase<BaseFloat> *waveform, BaseFloat preemph_coeff) {
+  if (preemph_coeff == 0.0) return;
+  KALDI_ASSERT(preemph_coeff >= 0.0 && preemph_coeff <= 1.0);
+  //(*waveform)(0) = (*waveform)(0);
+  for (int32 i = 1; i < waveform->Dim(); i++)
+    (*waveform)(i) += preemph_coeff * (*waveform)(i-1);
+}
 
 FeatureWindowFunction::FeatureWindowFunction(const FrameExtractionOptions &opts) {
   int32 frame_length = opts.WindowSize();
@@ -72,6 +79,8 @@ FeatureWindowFunction::FeatureWindowFunction(const FrameExtractionOptions &opts)
     BaseFloat i_fl = static_cast<BaseFloat>(i);
     if (opts.window_type == "hanning") {
       window(i) = 0.5  - 0.5*cos(M_2PI * i_fl / (frame_length-1));
+    } else if (opts.window_type == "sine") { // this is square root of Hanning window sugested for perfect reconstruction
+      window(i) = sin(M_PI * i_fl / (frame_length-1));
     } else if (opts.window_type == "hamming") {
       window(i) = 0.54 - 0.46*cos(M_2PI * i_fl / (frame_length-1));
     } else if (opts.window_type == "povey") {  // like hamming but goes to zero at edges.
@@ -164,6 +173,36 @@ void ExtractWindow(const VectorBase<BaseFloat> &wave,
   if (frame_length != frame_length_padded)
     SubVector<BaseFloat>(*window, frame_length,
                          frame_length_padded-frame_length).SetZero();
+}
+
+// OverlapAdd aims to reverse ExtractWindow to reconstruct a wave signal
+// OverlapAdd accumulates the waveform from a windowed frame.
+// It attempts to reverse pre-emphasis but cannot reverse dither or DC removal
+// typically: allocate and initialize wave to zero and call this function
+// for each frame similar to ExtractWindow
+void OverlapAdd(const VectorBase<BaseFloat> &window,
+                   int32 start,  // start sample
+                   int32 wav_length,  // if exceeds, will be trimmed
+                   const FrameExtractionOptions &opts,
+                   const FeatureWindowFunction &window_function,
+                   Matrix<BaseFloat> *wave) {
+  int32 frame_shift = opts.WindowShift();
+  int32 frame_length = window.Dim();
+  int32 start_output = start;
+  if (start_output < 0) start_output = 0;
+  int32 end = start + frame_length;
+  if (end > wav_length) end = wav_length;
+  KALDI_ASSERT(frame_shift != 0 && frame_length != 0);
+  KALDI_ASSERT(window_function.window.Dim() <= frame_length);
+  KALDI_ASSERT((*wave).NumCols() >= end);
+  BaseFloat factor = static_cast<BaseFloat>(frame_shift) / static_cast<BaseFloat>(window_function.window.Sum());
+
+  Vector<BaseFloat> window_part(window);
+  if (opts.preemph_coeff != 0.0)
+    Deemphasize(&window_part, opts.preemph_coeff); // actually pre-emphasis and de-emphasis should be done before framing and after forming the full signal, but since it was done frame-wise in ExtractWindow function, we also revert it this way
+
+  for (int32 k=start_output; k<end; k++)
+    (*wave)(0,k) += factor * window_part(k-start); // write into first row of Matrix wave
 }
 
 void ExtractWaveformRemainder(const VectorBase<BaseFloat> &wave,
