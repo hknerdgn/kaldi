@@ -1,9 +1,11 @@
 #!/bin/bash
 
-# this scripts first extract the 100th frame in each feature and 
-# concatenates this frame with every other frame in the feats.ark file
-# to form a pasted.ark file
-# this is for testing replicate-fixedlength-features program
+echo "------"
+echo this script firsts extracts the 100th frame in each utterance and 
+echo concatenates this frame with every other frame in the feats.ark file
+echo to form a pasted.ark file
+echo this is for testing replicate-fixedlength-features program
+echo "------"
 
 wavtgz=wav.tgz
 conf=/tmp/stft_$$.conf
