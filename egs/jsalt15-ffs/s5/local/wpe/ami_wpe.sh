@@ -79,3 +79,4 @@ for meeting in `cat $meetings`; do
     $cmd $log local/wpe/run_wpe_wavio.sh `pwd`/$scp $corpusdir `pwd`/$resdir $nbmics $arrayname &
 done
 
+wait

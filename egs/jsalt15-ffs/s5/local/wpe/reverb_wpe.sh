@@ -32,11 +32,12 @@ echo "$0 $@"  # Print the command line for logging
 
 
 if [ $# != 4 ]; then
-   echo "Usage: reverb_wpe.sh [options] <corpus-dir> <nbmics> <testset> <codition>"
+   echo "Usage: reverb_wpe.sh [options] <corpus-dir> <nbmics> <testset> <condition>"
    echo "... where <corpus-dir> is assumed to be the directory where the"
    echo " original REVERB corpus is located."
    echo "... <nbmics> is the number of microphones used for dereverberation"
    echo "... <tset> is the target test set (dev/eval)"
+   echo "... <condition> set which condition RealData or SimData"
    echo "e.g.: local/wpe/reverb_wpe.sh /export/REVERB 8 dt05 RealData"
    echo ""
    echo ""
@@ -97,7 +98,7 @@ for room in $rooms; do
 	echo $log
 	echo local/wpe/run_wpe.sh `pwd`/$scp $corpusdir `pwd`/$resdir $nbmics $arrayname
 	
-	$cmd $log local/wpe/run_wpe.sh `pwd`/$scp $corpusdir `pwd`/$resdir $nbmics $arrayname &
+	$cmd $log local/wpe/run_wpe.sh `pwd`/$scp $corpusdir `pwd`/$resdir $nbmics $arrayname&
     done
 done
-
+wait

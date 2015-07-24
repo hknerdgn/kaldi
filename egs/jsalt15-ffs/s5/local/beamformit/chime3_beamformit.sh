@@ -105,3 +105,5 @@ echo -e "Beamforming\n"
 
 $cmd JOB=1:$nj $wdir/log/beamform.JOB.log \
   `pwd`/local/beamformit/beamformit.sh $nj JOB $nbmics $wavfiles $idir $odir $wdir $conf $beamformit_dir &
+
+wait

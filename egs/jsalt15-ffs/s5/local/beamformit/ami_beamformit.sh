@@ -2,7 +2,7 @@
 
 # Copyright 2014, University of Edinburgh (Author: Pawel Swietojanski)
 #
-# Modified 2017/7/18 NTT Corporation (Author: Marc Delcroix)
+# Modified: Marc Delcroix NTT Corporation, July 17 2015
 #
 # Apache 2.0
 
@@ -92,4 +92,5 @@ echo -e "Beamforming\n"
 $cmd JOB=1:$nj $wdir/log/beamform.JOB.log \
      local/beamformit/beamformit.sh $nj JOB $nbmics $meetings $sdir $odir $wdir $conf $beamformit_dir &
 
+wait
 touch $odir/.done_$enh

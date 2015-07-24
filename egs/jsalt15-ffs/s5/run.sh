@@ -1,5 +1,9 @@
 #!/bin/bash -u
-
+#
+# Recipe for running the evaluation for JSALT-FFS system
+# This script performs speech enhancement, feature extraction and decoding.
+# For now it assumes that an already trained DNN model is available in egs/ami/s5
+#
 # Copyright 2009-2012  Microsoft Corporation  Johns Hopkins University (Author: Daniel Povey)
 # Apache 2.0.
 
@@ -14,10 +18,10 @@
 
 
 do_ami=true #true/false
-do_chime3=false #true/fasle
-do_reverb=false #true/false
+do_chime3=true #true/fasle
+do_reverb=true #true/false
 
-stage=4
+stage=1
 
 . utils/parse_options.sh
 
@@ -43,8 +47,8 @@ enhan_chime3=wpe6
 enhan_reverb=wpe8
 
 AMI_ENH_CORPUS=data/ami/$enhan_ami/wav
-CHIME3_ENH_CORPUS=data/$enhan_chime3/wpe6/wav
-REVERB_ENH_CORPUS=data/$enhan_reverb/wpe8/wav
+CHIME3_ENH_CORPUS=data/chime3/$enhan_chime3/wav
+REVERB_ENH_CORPUS=data/reverb/$enhan_reverb/wav
 
 if [ $stage -le 0 ]; then
 
@@ -53,25 +57,28 @@ if [ $stage -le 0 ]; then
     # you can request it by e-mail
     # e-mail marc.delcroix@lab.ntt.co.jp
     pushd local/wpe/
-    install_wpe.sh /export/ws15-ffs-data/mdelcroix/tools/wpe_v1.2.tgz
+    ./install_wpe.sh /export/ws15-ffs-data/mdelcroix/tools/wpe_v1.2.tgz
     popd
 
     if [ $do_ami == true ];then
 	echo Performing WPE for AMI
-	local/wpe/ami_wpe.sh --resdir $AMI_ENH_CORPUS $AMI_CORPUS 8 dev
-	local/wpe/ami_wpe.sh --resdir $AMI_ENH_CORPUS $AMI_CORPUS 8 eval
+	local/wpe/ami_wpe.sh --resdir $AMI_ENH_CORPUS $AMI_CORPUS 8 dev &
+	local/wpe/ami_wpe.sh --resdir $AMI_ENH_CORPUS $AMI_CORPUS 8 eval &
     fi
 
     if [ $do_chime3 == true ];then
 	echo Performing WPE for CHiME3
-	local/wpe/chime3_wpe.sh --resdir $CHIME3_ENH_CORPUS $CHIME3_CORPUS 6 dt05
-	local/wpe/chime3_wpe.sh --resdir $CHIME3_ENH_CORPUS $CHIME3_CORPUS 6 et05
+	local/wpe/chime3_wpe.sh --resdir $CHIME3_ENH_CORPUS $CHIME3_CORPUS 6 dt05 &
+	local/wpe/chime3_wpe.sh --resdir $CHIME3_ENH_CORPUS $CHIME3_CORPUS 6 et05 &
     fi
     
     if [ $do_reverb == true ];then
+	# First need to downlod the package to get task files
+	local/reverb_download_package.sh
+	
 	echo Performing WPE for REVERB
-	local/wpe/reverb_wpe.sh --resdir $REVERB_ENH_CORPUS $REVERB_CORPUS 8 dt RealData
-	local/wpe/reverb_wpe.sh --resdir $REVERB_ENH_CORPUS $REVERB_CORPUS 8 et RealData
+	local/wpe/reverb_wpe.sh --resdir $REVERB_ENH_CORPUS $REVERB_CORPUS 8 dt RealData &
+	local/wpe/reverb_wpe.sh --resdir $REVERB_ENH_CORPUS $REVERB_CORPUS 8 et RealData &
     fi
 fi
 wait
@@ -90,41 +97,41 @@ if [ $stage -le 1 ]; then
 
     pushd local/beamformit
     ### NEED TO BE IMPLEMENTED!!!
-    install_beamformit.sh
+    ./install_beamformit.sh
     popd
 
     beamformit_dir=/export/ws15-ffs-data/swatanabe/tools/beamformit/bin/BeamformIt-3.51
     if [ $do_ami == true ];then
-	AMI_BF_IN_CORPUS=data_wpe8
+	AMI_BF_IN_CORPUS=data/ami/wpe8/wav
 	echo Performing beamformit for AMI
-	local/beamformit/ami_beamformit.sh --beamformit-dir $beamformit_dir --nj 1 $AMI_BF_IN_CORPUS $enhan_ami $AMI_ENH_CORPUS
+	local/beamformit/ami_beamformit.sh --beamformit-dir $beamformit_dir --nj 1 $AMI_BF_IN_CORPUS $enhan_ami $AMI_ENH_CORPUS &
     fi
 
     if [ $do_chime3 == true ];then
-	CHIME3_BF_IN_CORPUS=data_wpe6
+	CHIME3_BF_IN_CORPUS=data/chime3/wpe6/wav
 	echo Performing BEAMFORMIT for CHiME3
 	local/beamformit/chime3_beamformit.sh --beamformit-dir $beamformit_dir --nj 1 $CHIME3_BF_IN_CORPUS \
-	     $enhan_chime3 dt05 $CHIME3_ENH_CORPUS 
+	     $enhan_chime3 dt05 $CHIME3_ENH_CORPUS &
 	local/beamformit/chime3_beamformit.sh --beamformit-dir $beamformit_dir --nj 1 $CHIME3_BF_IN_CORPUS \
-	     $enhan_chime3 et05 $CHIME3_ENH_CORPUS 
+	     $enhan_chime3 et05 $CHIME3_ENH_CORPUS &
     fi
     
     if [ $do_reverb == true ];then
-	REVERB_BF_IN_CORPUS=data_wpe8
+	REVERB_BF_IN_CORPUS=data/reverb/wpe8/wav
 	echo Performing BEAMFORMIT for REVERB
 	local/beamformit/reverb_beamformit.sh --beamformit-dir $beamformit_dir --nj 1 $REVERB_BF_IN_CORPUS/MC_WSJ_AV_Dev \
-	     $enhan_reverb dt RealData $REVERB_ENH_CORPUS
-	local/beamformit/reverb_beamformit.sh --beamformit-dir $beamformit_dir --nj 1 $REVERB_BF_IN_CORPUS/MC_WSJ_AV_Eval \
-	     $enhan_reverb et RealData $REVERB_ENH_CORPUS
+	     $enhan_reverb dt RealData $REVERB_ENH_CORPUS &
+ 	local/beamformit/reverb_beamformit.sh --beamformit-dir $beamformit_dir --nj 1 $REVERB_BF_IN_CORPUS/MC_WSJ_AV_Eval \
+	     $enhan_reverb et RealData $REVERB_ENH_CORPUS &
     fi
 fi
-
+wait
 # Data preparation for decoding
 if [ $stage -le 2 ]; then
     if [ $do_ami == true ]; then
 	echo do ami
 
-	mkdir -p data_${enhan_ami}/ami/local/annotations/
+	mkdir -p data/ami/${enhan_ami}/local/annotations/
 	cp ${AMI_EXP_DIR}/data/local/annotations/dev.txt data/ami/${enhan_ami}/local/annotations/
 	cp ${AMI_EXP_DIR}/data/local/annotations/eval.txt data/ami/${enhan_ami}/local/annotations/
 	

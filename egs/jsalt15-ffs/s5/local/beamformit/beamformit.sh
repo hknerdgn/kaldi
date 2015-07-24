@@ -1,6 +1,8 @@
 #!/bin/bash
 
 # Copyright 2014, University of Edibnurgh (Author: Pawel Swietojanski)
+#
+# Modified 2017/7/18 NTT Corporation (Author: Marc Delcroix)
 
 . ./path.sh
 
