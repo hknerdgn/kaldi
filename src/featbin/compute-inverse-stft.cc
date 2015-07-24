@@ -21,80 +21,78 @@
 #include "util/common-utils.h"
 #include "feat/inverse-stft.h"
 #include "feat/wave-reader.h"
-//#include "matrix/kaldi-matrix.h"
 
 int main(int argc, char *argv[]) {
-  try {
-    using namespace kaldi;
-    const char *usage =
-        "Convert stft feature files to wave files by inverse fft and overlap-add.\n"
-        "Usage:  compute-inverse-stft [options...] <feats-rspecifier> <wav-wspecifier>\n";
-    std::string wav_durations_rspecifier;
+    try {
+        using namespace kaldi;
+        const char *usage =
+            "Convert stft feature files to wave files by inverse fft and overlap-add.\n"
+            "Usage:  compute-inverse-stft [options...] <feats-rspecifier> <wav-wspecifier>\n";
+        std::string wav_durations_rspecifier;
 
-    // construct all the global objects
-    ParseOptions po(usage);
-    StftOptions stft_opts;
-    // Define defaults for gobal options
+        // construct all the global objects
+        ParseOptions po(usage);
+        StftOptions stft_opts;
+        // Define defaults for gobal options
 
-    // Register the option struct
-    stft_opts.Register(&po);
-    // Register the options
-    po.Register("wav-durations", &wav_durations_rspecifier, "Durations for output wave files ");
+        // Register the option struct
+        stft_opts.Register(&po);
+        // Register the options
+        po.Register("wav-durations", &wav_durations_rspecifier, "Durations for output wave files ");
 
-    // OPTION PARSING ..........................................................
-    //
+        // OPTION PARSING ..........................................................
+        //
 
-    // parse options (+filling the registered variables)
-    po.Read(argc, argv);
+        // parse options (+filling the registered variables)
+        po.Read(argc, argv);
 
-    if (po.NumArgs() != 2) {
-      po.PrintUsage();
-      exit(1);
-    }
-
-    std::string feats_rspecifier = po.GetArg(1);
-
-    std::string wav_wspecifier = po.GetArg(2);
-
-    Istft istft(stft_opts);
-
-    SequentialBaseFloatMatrixReader reader(feats_rspecifier);
-    RandomAccessBaseFloatReader dur_reader(wav_durations_rspecifier);
-
-    TableWriter<WaveHolder> writer(wav_wspecifier);
-
-    //int32 frame_shift_samp = static_cast<int32>(samp_freq * 0.001 * stft_opts.frame_opts.frame_shift_ms);
-    int32 samp_rate = stft_opts.frame_opts.samp_freq;
-
-    int32 num_utts = 0, num_success = 0;
-    for (; !reader.Done(); reader.Next()) {
-      num_utts++;
-      std::string utt = reader.Key();
-      const Matrix<BaseFloat> &stftdata_matrix(reader.Value());
-
-      Matrix<BaseFloat> wave_matrix; // no init here, Matrix with single row because WaveData uses that
-
-      int32 wav_duration_samples;  // get wav durations
-      if (wav_durations_rspecifier != "") {
-        if (!dur_reader.HasKey(utt)) {
-          KALDI_WARN << "No duration entry for utterance-id "
-                     << utt;
-          continue;
+        if (po.NumArgs() != 2) {
+            po.PrintUsage();
+            exit(1);
         }
-        wav_duration_samples = samp_rate * dur_reader.Value(utt);
-      } else {
-        wav_duration_samples = -1; // do not specify duration and let istft figure it out
-      }
 
-      istft.Compute(stftdata_matrix, &wave_matrix, wav_duration_samples);
+        std::string feats_rspecifier = po.GetArg(1);
+        std::string wav_wspecifier = po.GetArg(2);
 
-      WaveData wave(samp_rate, wave_matrix);
-      writer.Write(utt, wave); // write data in wave format.
-      num_success++;
+        Istft istft(stft_opts);
+
+        SequentialBaseFloatMatrixReader reader(feats_rspecifier);
+        RandomAccessBaseFloatReader dur_reader(wav_durations_rspecifier);
+
+        TableWriter<WaveHolder> writer(wav_wspecifier);
+
+        int32 samp_rate = stft_opts.frame_opts.samp_freq;
+
+        int32 num_utts = 0, num_success = 0;
+        for (; !reader.Done(); reader.Next()) {
+            num_utts++;
+            std::string utt = reader.Key();
+            const Matrix<BaseFloat> &stftdata_matrix(reader.Value());
+
+            Matrix<BaseFloat> wave_matrix; // no init here, Matrix with single row because WaveData uses that
+
+            int32 wav_duration_in_samples;  // get wav durations
+            if (wav_durations_rspecifier != "") {
+                if (!dur_reader.HasKey(utt)) {
+                    KALDI_WARN << "No duration entry for utterance-id "
+                               << utt;
+                    continue;
+                }
+                wav_duration_in_samples = samp_rate * dur_reader.Value(utt);
+            } else {
+                wav_duration_in_samples = -1; // do not specify duration and let istft figure it out from frames
+            }
+
+            istft.Compute(stftdata_matrix, &wave_matrix, wav_duration_in_samples); //note, third arg optional
+
+            // convert matrix to WaveData
+            WaveData wave(samp_rate, wave_matrix);
+            writer.Write(utt, wave); // write data in wave format.
+            num_success++;
+        }
+        return 0;
+    } catch(const std::exception &e) {
+        std::cerr << e.what();
+        return -1;
     }
-  return 0;
-  } catch(const std::exception &e) {
-    std::cerr << e.what();
-    return -1;
-  }
 }

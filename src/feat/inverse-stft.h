@@ -35,21 +35,21 @@ namespace kaldi {
 
 /// Class for computing inverse STFT;
 class Istft {
- public:
-  explicit Istft(const StftOptions &opts);
-  ~Istft();
+public:
+    explicit Istft(const StftOptions &opts);
+    ~Istft();
 
-  /// Will throw exception on failure (e.g. if features are too short)
-  void Compute(const Matrix<BaseFloat> &input,
-               Matrix<BaseFloat> *wave,
-	       int32 wav_length = -1);
+    /// Will throw exception on failure (e.g. if features are too short)
+    void Compute(const Matrix<BaseFloat> &input,
+                 Matrix<BaseFloat> *wave,
+                 int32 wav_length = -1);
 
- private:
-  StftOptions opts_;
-  BaseFloat log_energy_floor_;
-  FeatureWindowFunction feature_window_function_;
-  SplitRadixRealFft<BaseFloat> *srfft_;
-  KALDI_DISALLOW_COPY_AND_ASSIGN(Istft);
+private:
+    StftOptions opts_;
+    BaseFloat log_energy_floor_;
+    FeatureWindowFunction feature_window_function_;
+    SplitRadixRealFft<BaseFloat> *srfft_;
+    KALDI_DISALLOW_COPY_AND_ASSIGN(Istft);
 };
 
 

@@ -77,8 +77,8 @@ void Stft::Compute(const VectorBase<BaseFloat> &wave,
 
         spectrum1(0)=window(0); // DC frequency
         spectrum2(0)=0;
-        int k=1;
-        for (int i=2; i < window.Dim(); i+=2) {
+        int32 k=1;
+        for (int32 i=2; i < window.Dim(); i+=2) {
             spectrum1(k)=window(i);
             spectrum2(k++)=window(i+1);
         }
@@ -86,19 +86,19 @@ void Stft::Compute(const VectorBase<BaseFloat> &wave,
         spectrum2(k)=0;
 
         if (opts_.output_type == "amplitude_and_phase") {
-            for (int i=0; i < spectrum1.Dim(); i++) {
+            for (int32 i=0; i < spectrum1.Dim(); i++) {
                 BaseFloat mag=std::sqrt(spectrum1(i)*spectrum1(i)+spectrum2(i)*spectrum2(i));
                 BaseFloat phase=std::atan2(spectrum2(i),spectrum1(i));
                 spectrum1(i)=mag;
                 spectrum2(i)=phase;
             }
         } else if (opts_.output_type == "amplitude") {
-            for (int i=0; i<spectrum1.Dim(); i++) {
+            for (int32 i=0; i<spectrum1.Dim(); i++) {
                 BaseFloat mag=std::sqrt(spectrum1(i)*spectrum1(i)+spectrum2(i)*spectrum2(i));
                 spectrum1(i)=mag;
             }
         } else if (opts_.output_type == "phase") {
-            for (int i=0; i<spectrum1.Dim(); i++) {
+            for (int32 i=0; i<spectrum1.Dim(); i++) {
                 BaseFloat phase=std::atan2(spectrum2(i),spectrum1(i));
                 spectrum2(i)=phase;
             }
@@ -106,21 +106,21 @@ void Stft::Compute(const VectorBase<BaseFloat> &wave,
 
         // start forming output
         Vector<BaseFloat> temp(cols_out);
-        int kk=0;
+        int32 kk=0;
 
         if (opts_.output_type == "amplitude" ) {
-            for (int i=0; i< spectrum1.Dim(); i++)
+            for (int32 i=0; i< spectrum1.Dim(); i++)
                 temp(kk++)=spectrum1(i);
         } else if (opts_.output_type == "phase" ) {
-            for (int i=0; i< spectrum2.Dim(); i++)
+            for (int32 i=0; i< spectrum2.Dim(); i++)
                 temp(kk++)=spectrum2(i);
         } else if (opts_.output_layout == "block" ) {
-            for (int i=0; i< spectrum1.Dim(); i++)
+            for (int32 i=0; i< spectrum1.Dim(); i++)
                 temp(kk++)=spectrum1(i);
-            for (int i=0; i< spectrum2.Dim(); i++)
+            for (int32 i=0; i< spectrum2.Dim(); i++)
                 temp(kk++)=spectrum2(i);
         } else if (opts_.output_layout == "interleaved" ) {
-            for (int i=0; i< spectrum1.Dim(); i++) {
+            for (int32 i=0; i< spectrum1.Dim(); i++) {
                 temp(kk++)=spectrum1(i);
                 temp(kk++)=spectrum2(i);
             }

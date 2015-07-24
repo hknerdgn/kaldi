@@ -35,43 +35,43 @@ namespace kaldi {
 /// it does not include energy max-normalization.
 /// It does not include delta computation.
 struct StftOptions {
-  FrameExtractionOptions frame_opts;
-  std::string output_type; // "real_and_imaginary", "amplitude_and_phase", "amplitude", "phase"
-  std::string output_layout; // layout == "block" then len=N+2, that is RE, IM, RE, IM, ...
-			     // layout == "interleaved" then len=N+2, RE, RE, ..., IM, IM, ...
+    FrameExtractionOptions frame_opts;
+    std::string output_type; // "real_and_imaginary", "amplitude_and_phase", "amplitude", "phase"
+    std::string output_layout; // layout == "block" then len=N+2, that is RE, IM, RE, IM, ...
+    // layout == "interleaved" then len=N+2, RE, RE, ..., IM, IM, ...
 
-  StftOptions() :
-    output_type("real_and_imaginary"),
-    output_layout("block") { }
-    
+    StftOptions() :
+        output_type("real_and_imaginary"),
+        output_layout("block") { }
 
-  void Register(OptionsItf *po) {
-    frame_opts.Register(po);
-    po->Register("output-type", &output_type,
-                 "Valid types are real_and_imaginary (default), amplitude_and_phase, amplitude, phase");
-    po->Register("output-layout", &output_layout,
-                 "block: RE RE ... IM IM ... , interleaved: RE IM RE IM ...");
-  }
+
+    void Register(OptionsItf *po) {
+        frame_opts.Register(po);
+        po->Register("output-type", &output_type,
+                     "Valid types are real_and_imaginary (default), amplitude_and_phase, amplitude, phase");
+        po->Register("output-layout", &output_layout,
+                     "block: RE RE ... IM IM ... , interleaved: RE IM RE IM ...");
+    }
 };
 
 /// Class for computing STFT features; see \ref feat_mfcc for more information.
 class Stft {
- public:
-  explicit Stft(const StftOptions &opts);
-  ~Stft();
+public:
+    explicit Stft(const StftOptions &opts);
+    ~Stft();
 
-  /// Will throw exception on failure (e.g. if file too short for
-  /// even one frame).
-  void Compute(const VectorBase<BaseFloat> &wave,
-               Matrix<BaseFloat> *output,
-               Vector<BaseFloat> *wave_remainder = NULL);
+    /// Will throw exception on failure (e.g. if file too short for
+    /// even one frame).
+    void Compute(const VectorBase<BaseFloat> &wave,
+                 Matrix<BaseFloat> *output,
+                 Vector<BaseFloat> *wave_remainder = NULL);
 
- private:
-  StftOptions opts_;
-  BaseFloat log_energy_floor_;
-  FeatureWindowFunction feature_window_function_;
-  SplitRadixRealFft<BaseFloat> *srfft_;
-  KALDI_DISALLOW_COPY_AND_ASSIGN(Stft);
+private:
+    StftOptions opts_;
+    BaseFloat log_energy_floor_;
+    FeatureWindowFunction feature_window_function_;
+    SplitRadixRealFft<BaseFloat> *srfft_;
+    KALDI_DISALLOW_COPY_AND_ASSIGN(Stft);
 };
 
 
