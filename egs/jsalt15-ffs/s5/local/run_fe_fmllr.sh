@@ -80,7 +80,9 @@ echo feature extraction done
 
 steps/decode_fmllr.sh --cmd "$decode_cmd" --nj $nj --num-threads $num_threads \
                       --parallel-opts '-pe smp $num_threads' \
-                      $graph_dir $data_dir $fmllr_wrk_dir 
+                      --skip-scoring true \
+                      $graph_dir $data_dir $fmllr_wrk_dir || exit 1
+
 
 echo fmllr decoding done
 

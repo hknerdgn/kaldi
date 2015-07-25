@@ -42,7 +42,8 @@ trans_dir=$orig_corpus_dir/data/transcriptions
 
 echo "extract 5th channel (CH5.wav, the center bottom edge in the front of the tablet) for noisy data"
 
-dir=`pwd`/data/local/data
+
+dir=`pwd`/data/chime3/$processing/local #/data
 lmdir=`pwd`/data/local/nist_lm
 mkdir -p $dir $lmdir
 local=`pwd`/local
@@ -123,11 +124,11 @@ done
 
 # copying data to data/...
 for x in $list_set; do
-  mkdir -p ../../$x
-  cp ${x}_wav.scp ../../$x/wav.scp || exit 1;
-  cp ${x}.txt     ../../$x/text    || exit 1;
-  cp ${x}.spk2utt ../../$x/spk2utt || exit 1;
-  cp ${x}.utt2spk ../../$x/utt2spk || exit 1;
+  mkdir -p ../$x
+  cp ${x}_wav.scp ../$x/wav.scp || exit 1;
+  cp ${x}.txt     ../$x/text    || exit 1;
+  cp ${x}.spk2utt ../$x/spk2utt || exit 1;
+  cp ${x}.utt2spk ../$x/utt2spk || exit 1;
 done
 
 echo "Data preparation succeeded"
