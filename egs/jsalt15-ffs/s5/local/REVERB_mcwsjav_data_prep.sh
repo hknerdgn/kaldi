@@ -53,10 +53,7 @@ fi
 
 mcwsjav_mlf=$RWSJ_ORIG/mlf/WSJ.mlf
 
-enhan=
-if [ ! -z "$5" ]; then
-    enhan=_$5
-fi
+enhan=$5
 
 
 #dir=`pwd`/data/local/data
@@ -65,6 +62,9 @@ lmdir=`pwd`/data/local/nist_lm
 mkdir -p $dir $lmdir
 local=`pwd`/local
 utils=`pwd`/utils
+#taskFileDir=$dir/../../reverb_tools/ReleasePackage/reverb_tools_for_asr_ver2.0/taskFiles/1ch
+taskFileDir=`pwd`/data/local/reverb_tools/ReleasePackage/reverb_tools_for_asr_ver2.0/taskFiles/1ch
+
 root=`pwd`
 
 . ./path.sh # Needed for KALDI_ROOT
@@ -84,8 +84,6 @@ MIC=primary
 # since the corpus does NOT contain the data set descriptions 
 # for the REVERB Challenge
 
-#taskFileDir=$dir/../../reverb_tools/ReleasePackage/reverb_tools_for_asr_ver2.0/taskFiles/1ch
-taskFileDir=$dir/../reverb_tools/ReleasePackage/reverb_tools_for_asr_ver2.0/taskFiles/1ch
 #taskFiles=`ls $taskFileDir/*Data_dt_for_*`
 taskFiles=`ls $taskFileDir/RealData_${dt_or_x}_for_1ch_{far,near}*`
 

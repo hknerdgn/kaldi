@@ -122,11 +122,11 @@ done
 
 # copying data to data/...
 for x in $list_set; do
-  mkdir -p ../../$x
-  cp ${x}_wav.scp ../../$x/wav.scp || exit 1;
-  cp ${x}.txt     ../../$x/text    || exit 1;
-  cp ${x}.spk2utt ../../$x/spk2utt || exit 1;
-  cp ${x}.utt2spk ../../$x/utt2spk || exit 1;
+  mkdir -p ../$x
+  cp ${x}_wav.scp ../$x/wav.scp || exit 1;
+  cp ${x}.txt     ../$x/text    || exit 1;
+  cp ${x}.spk2utt ../$x/spk2utt || exit 1;
+  cp ${x}.utt2spk ../$x/utt2spk || exit 1;
 done
 
 echo "Data preparation succeeded"

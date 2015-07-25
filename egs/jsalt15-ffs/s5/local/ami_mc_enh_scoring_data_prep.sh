@@ -27,10 +27,9 @@ fi
 AMI_DIR=$1
 SET=$2
 ENH=$3
-DSET="$ENH"
 
 SEGS=data/local/annotations/$SET.txt
-tmpdir=data/local/$ENH/$SET
+tmpdir=data/ami/$ENH/$SET/local
 dir=data/ami/$ENH/$SET
 
 mkdir -p $tmpdir
@@ -160,5 +159,5 @@ cp local/english.glm $dir/glm
 
 utils/validate_data_dir.sh --no-feats $dir
 
-echo AMI $DSET scenario and $SET set data preparation succeeded.
+echo AMI $ENH scenario and $SET set data preparation succeeded.
 

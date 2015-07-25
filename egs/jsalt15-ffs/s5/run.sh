@@ -21,7 +21,7 @@ do_ami=true #true/false
 do_chime3=true #true/fasle
 do_reverb=true #true/false
 
-stage=1
+stage=0
 
 . utils/parse_options.sh
 
@@ -73,7 +73,7 @@ if [ $stage -le 0 ]; then
     fi
     
     if [ $do_reverb == true ];then
-	# First need to downlod the package to get task files
+	# First need to download the package to get task files
 	local/reverb_download_package.sh
 	
 	echo Performing WPE for REVERB
@@ -84,7 +84,7 @@ fi
 wait
 
 
-# Beamforming with beaformit 
+# Beamforming with beamformit 
 enhan_ami=wpe8_bf
 enhan_chime3=wpe6_bf
 enhan_reverb=wpe8_bf
@@ -126,15 +126,16 @@ if [ $stage -le 1 ]; then
     fi
 fi
 wait
+
 # Data preparation for decoding
 if [ $stage -le 2 ]; then
     if [ $do_ami == true ]; then
 	echo do ami
 
-	mkdir -p data/ami/${enhan_ami}/local/annotations/
-	cp ${AMI_EXP_DIR}/data/local/annotations/dev.txt data/ami/${enhan_ami}/local/annotations/
-	cp ${AMI_EXP_DIR}/data/local/annotations/eval.txt data/ami/${enhan_ami}/local/annotations/
-	
+	mkdir -p data/local/annotations/
+	cp ${AMI_EXP_DIR}/data/local/annotations/dev.txt data/local/annotations
+	cp ${AMI_EXP_DIR}/data/local/annotations/eval.txt data/local/annotations
+		
 	if [[ $multi_mics == true ]];then
 	    micid=1
 	    local/ami_mc_enh_scoring_data_prep.sh --mic $micid $AMI_ENH_CORPUS dev $enhan_ami
@@ -258,8 +259,8 @@ if [ $stage -le 3 ]; then
 	
 	for tset in dt et; do
 
-	    dataset=data/chime3/$enhan_chime3/${tset}05_real
-	    fmllr_wrk_dir=${fmllr_decode_dir}/decode_chime3_${lmsuffix}_${tset}05_real_$enhan_chime3
+	    dataset=data/chime3/$enhan_chime3/${tset}05_real_${enhan_chime3}
+	    fmllr_wrk_dir=${fmllr_decode_dir}/decode_chime3_${lm_suffix}_${tset}05_real_$enhan_chime3
 	    fmllr_data_dir=${fmllr_data}/chime3/${enhan_chime3}/${tset}05_real
 	    
 	    mkdir -p $fmllr_wrk_dir
@@ -284,8 +285,6 @@ if [ $stage -le 3 ]; then
 	echo feature extraction REVERB task
     
 	for tset in dt et; do
-	    #### !!! This should be checked !!!!! ####
-	    #### Potential fix needed here #####
 	    for dataset in `ls -d data/reverb/${enhan_reverb}/RealData_${tset}*` ; do
 		echo $dataset
 
@@ -312,7 +311,6 @@ if [ $stage -le 3 ]; then
 					      $dataset \
 					      $fmllr_data_dir \
 					      $fmllr_wrk_dir &
-
 	    done
 	done
     fi
@@ -325,7 +323,7 @@ dnn_dir=$AMI_EXP_DIR/exp/$mic/dnn4_pretrain-dbn_dnn
 acwt=0.1
 
 dnn_decode=exp/$mic/dnn4_pretrain-dbn_dnn
-
+mkdir -p $dnn_decode
 
 if [ $stage -le 4 ]; then
 
@@ -340,6 +338,7 @@ if [ $stage -le 4 ]; then
 	lm_suffix=$final_lm.pr1-7
     
 	graph_dir=$AMI_EXP_DIR/exp/$mic/tri4a/graph_${lm_suffix}
+	ln -s $dnn_dir/final.mdl $dnn_decode/
 	
 	for tset in dev eval; do
 
@@ -347,24 +346,11 @@ if [ $stage -le 4 ]; then
 	    fmllr_data_dir=${fmllr_data}/ami/$enhan_ami/${tset}
 	    scoring_opts=ami
     
-            # DNN Decoding
-	    steps/nnet/decode.sh --nj 10 --cmd "$decode_cmd" --config conf/decode_dnn.conf \
-                --num-threads 3 \
-                --nnet $dnn_dir/final.nnet --acwt $acwt \
-                --srcdir $dnn_dir \
-                $graph_dir $fmllr_data_dir $decode_dir &
-
-	    # Scoring
-
-	    # Requires the final.mdl to perform decoding
-	    # XXX This still needs to be debuged!!! XXX #
-	    echo $dnn_dir/final.mdl
-	    ln -s $dnn_dir/final.mdl $dnn_decode
-
-	    scoring_opts="--min-lmwt 4 --max-lmwt 15"
-
-            echo local/score_ami.sh $scoring_opts --cmd "$decode_cmd" $fmllr_data_dir $graph_dir $decode_dir
-	    local/score_asclite.sh --asclite true $scoring_opts --cmd "$decode_cmd" $fmllr_data_dir $graph_dir $decode_dir
+	    local/ami_decode.sh $dnn_dir \
+		$graph_dir \
+		$fmllr_data_dir \
+		$decode_dir \
+		$acwt &
 	done
     fi
 
@@ -384,18 +370,13 @@ if [ $stage -le 4 ]; then
 	    decode_dir=${dnn_decode}/decode_chime3_${lm_suffix}_${tset}05_real_${enhan_chime3}
 	    fmllr_data_dir=${fmllr_data}/chime3/${enhan_chime3}/${tset}05_real
 
-	    scoring_opts=chime3
-    
-            # DNN Decoding
-	    steps/nnet/decode.sh --nj 4 --cmd "$decode_cmd" --config conf/decode_dnn.conf \
-                --num-threads 3 \
-                --nnet $dnn_dir/final.nnet --acwt $acwt \
-                --srcdir $dnn_dir \
-                $graph_dir $fmllr_data_dir $decode_dir &
 
-	    # Scoring
-	    scoring_opts="--min-lmwt 4 --max-lmwt 15"
-            local/score_chime3.sh $scoring_opts --cmd "$decode_cmd" $fmllr_data_dir $graph_dir $decode_dir
+	    local/chime3_decode.sh $dnn_dir \
+		$graph_dir \
+		$fmllr_data_dir \
+		$decode_dir \
+		$acwt &
+
 	done  
     fi
 
@@ -407,7 +388,7 @@ if [ $stage -le 4 ]; then
 	echo decode REVERB task
     
 	for tset in dt et; do
-	    for dataset in `ls -d data/REVERB_Real_${tset}_${enhan_reverb}/RealData_${tset}*` ; do
+	    for dataset in `ls -d data/reverb/${enhan_reverb}/RealData_${tset}*` ; do
 		echo $dataset
 
 		lm_suffix=lm_tg_5k
@@ -415,19 +396,14 @@ if [ $stage -le 4 ]; then
 
 
 		decode_dir=${dnn_decode}/decode_reverb_${lm_suffix}_`basename $dataset`_$enhan_reverb
-		fmllr_data_dir=${fmllr_data}/reverb/${enhan_reverb}/`basename $dataset`_$enhan_reverb
+		fmllr_data_dir=${fmllr_data}/reverb/${enhan_reverb}/`basename $dataset`
 
-	
-                # DNN Decoding
-		steps/nnet/decode.sh --nj 4 --cmd "$decode_cmd" --config conf/decode_dnn.conf\
-                    --num-threads 3 \
-                    --nnet $dnn_dir/final.nnet --acwt $acwt \
-                    --srcdir $dnn_dir \
-	            $graph_dir $fmllr_data_dir $decode_dir &
+		local/chime3_decode.sh $dnn_dir \
+		    $graph_dir \
+		    $fmllr_data_dir \
+		    $decode_dir \
+		    $acwt &
 		
-		# Scoring
-		scoring_opts="--min-lmwt 4 --max-lmwt 15"
-                local/score_reverb.sh $scoring_opts --cmd "$decode_cmd" $fmllr_data_dir $graph_dir $decode_dir
 	    done
 	done
     fi
