@@ -27,6 +27,7 @@
 #include "util/common-utils.h"
 #include "base/kaldi-error.h"
 #include "feat/mel-computations.h"
+#include "feat/feature-functions.h"
 
 namespace kaldi {
 /// @addtogroup  feat FeatureExtraction

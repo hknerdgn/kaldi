@@ -17,6 +17,11 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
+#include "feat/stft-functions.h"
+#include "matrix/matrix-functions.h"
+
+
+namespace kaldi {
 
 // reverses Preemphasis
 // z=De_emphasis(y)
@@ -59,3 +64,5 @@ void OverlapAdd(const VectorBase<BaseFloat> &window,
     for (int32 k=start_output; k<end; k++)
         (*wave)(0,k) += factor * window_part(k-start); // accumulate (overlap-add) into first row of Matrix wave
 }
+
+}  // namespace kaldi
