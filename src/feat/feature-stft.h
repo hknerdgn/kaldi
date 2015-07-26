@@ -24,6 +24,7 @@
 #include <string>
 
 #include "feat/feature-functions.h"
+#include "feat/stft-functions.h"
 
 namespace kaldi {
 /// @addtogroup  feat FeatureExtraction

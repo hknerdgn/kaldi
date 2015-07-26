@@ -24,6 +24,7 @@
 #include <string>
 
 #include "feat/feature-functions.h"
+#include "feat/stft-functions.h"
 #include "feat/feature-stft.h"
 
 namespace kaldi {
