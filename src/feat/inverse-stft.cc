@@ -54,10 +54,27 @@ void Istft::Compute(const Matrix<BaseFloat> &input,
     wave_out->Resize(1,wav_length); // write single channel, so single row
     wave_out->SetZero(); // set to zero to initialize overlap-add correctly
 
-    KALDI_ASSERT(window_size+2 == input_feat_size);
+    //KALDI_ASSERT(window_size+2 == input_feat_size);
     KALDI_ASSERT(opts_.output_type == "real_and_imaginary" || opts_.output_type == "amplitude_and_phase");
 
-    int32 Nfft = input.NumCols()-2; // also equal to window_size
+    //int32 Nfft = input.NumCols()-2; // also equal to window_size
+    int32 Nfft = window_size;
+
+    // middle frequency range
+    int32 start_frq=1; // the one after DC
+    int32 end_frq=Nfft/2; // the Nyquist frequency 
+    int32 num_frq=Nfft/2+1; // including DC and Nyquist
+
+    if (opts_.cut_dc) {
+	start_frq--;
+	end_frq--;
+	num_frq--;
+    }
+
+    if (opts_.cut_nyquist) {
+	end_frq--;
+	num_frq--;
+    }
 
     // Compute from all the frames, r is frame index..
     for (int32 r = 0; r < num_frames; r++) {
@@ -69,32 +86,56 @@ void Istft::Compute(const Matrix<BaseFloat> &input,
         int32 k=2;
         if (opts_.output_layout == "block") {
             if (opts_.output_type == "amplitude_and_phase") {
-                temp(0)=input(r,0) * std::cos(input(r,Nfft/2+1));
-                temp(1)=input(r,Nfft/2) * std::cos(input(r,Nfft+1));
-                for (int32 i=1; i<Nfft/2-1; i++) { // start with first nonzero freq. at position 1
-                    temp(k++)=input(r,i) * std::cos(input(r,i+Nfft/2+1));
-                    temp(k++)=input(r,i) * std::sin(input(r,i+Nfft/2+1));
+                if (opts_.cut_dc)
+                  temp(0)=0;
+                else
+                  temp(0)=input(r,0) * std::cos(input(r,num_frq));
+                if (opts_.cut_nyquist) 
+                  temp(1)=0;
+                else 
+		  temp(1)=input(r,end_frq) * std::cos(input(r,end_frq+num_frq));
+                for (int32 i=start_frq; i<end_frq; i++) { // start with first nonzero freq. at position 0 or 1
+                    temp(k++)=input(r,i) * std::cos(input(r,i+num_frq));
+                    temp(k++)=input(r,i) * std::sin(input(r,i+num_frq));
                 }
             } else {
-                temp(0)=input(r,0);
-                temp(1)=input(r,Nfft/2);
-                for (int32 i=1; i<Nfft/2-1; i++) { // start with first nonzero freq. at position 1
+                if (opts_.cut_dc)
+                  temp(0)=0;
+                else
+                  temp(0)=input(r,0);
+                if (opts_.cut_nyquist) 
+                  temp(1)=0;
+                else 
+                  temp(1)=input(r,end_frq);
+                for (int32 i=start_frq; i<end_frq; i++) { // start with first nonzero freq. at position 0 or 1
                     temp(k++)=input(r,i);
-                    temp(k++)=input(r,i+Nfft/2+1);
+                    temp(k++)=input(r,i+num_frq);
                 }
             }
         } else if (opts_.output_layout == "interleaved") {
             if (opts_.output_type == "amplitude_and_phase") {
-                temp(0)=input(r,0) * std::cos(input(r,1));
-                temp(1)=input(r,Nfft) * std::cos(input(r,Nfft+1));
-                for (int32 i=2; i<Nfft-1; i+=2) { // start with first nonzero freq. now at position 2 (due to interlaved)
+                if (opts_.cut_dc)
+                  temp(0)=0;
+                else
+                  temp(0)=input(r,0) * std::cos(input(r,1));
+                if (opts_.cut_nyquist) 
+                  temp(1)=0;
+                else 
+                  temp(1)=input(r,2*end_frq) * std::cos(input(r,2*end_frq+1));
+                for (int32 i=2*start_frq; i<2*end_frq; i+=2) { // start with first nonzero freq. now at position 2 (due to interlaved)
                     temp(k++)=input(r,i) * std::cos(input(r,i+1));
                     temp(k++)=input(r,i) * std::sin(input(r,i+1));
                 }
             } else {
-                temp(0)=input(r,0);
-                temp(1)=input(r,Nfft);
-                for (int32 i=2; i<Nfft-1; i+=2) { // start with first nonzero freq. now at position 2 (due to interleaved)
+                if (opts_.cut_dc)
+                  temp(0)=0;
+                else
+                  temp(0)=input(r,0);
+                if (opts_.cut_nyquist) 
+                  temp(1)=0;
+                else 
+                  temp(1)=input(r,2*end_frq);
+                for (int32 i=2*start_frq; i<2*end_frq; i+=2) { // start with first nonzero freq. now at position 2 (due to interleaved)
                     temp(k++)=input(r,i);
                     temp(k++)=input(r,i+1);
                 }

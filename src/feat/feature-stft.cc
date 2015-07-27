@@ -44,6 +44,21 @@ void Stft::Compute(const VectorBase<BaseFloat> &wave,
     // Get dimensions of output features
     int32 rows_out = NumFrames(wave.Dim(), opts_.frame_opts);
     int32 cols_out = opts_.frame_opts.PaddedWindowSize()+2;
+    int32 start_frq = 0;
+    int32 end_frq = opts_.frame_opts.PaddedWindowSize()/2+1; // after Nyquist, not inclusive
+
+    if (opts_.cut_dc) {
+        cols_out -= 2;
+        start_frq = 1;
+    }
+
+    if (opts_.cut_nyquist) {
+        cols_out -= 2;
+        end_frq = end_frq-1;
+    }
+    
+    if (opts_.output_type == "amplitude" || opts_.output_type == "phase")
+        cols_out /= 2;
 
     if (rows_out == 0)
         KALDI_ERR << "No frames fit in file (#samples is " << wave.Dim() << ")";
@@ -109,18 +124,18 @@ void Stft::Compute(const VectorBase<BaseFloat> &wave,
         int32 kk=0;
 
         if (opts_.output_type == "amplitude" ) {
-            for (int32 i=0; i< spectrum1.Dim(); i++)
+            for (int32 i=start_frq; i< end_frq; i++)
                 temp(kk++)=spectrum1(i);
         } else if (opts_.output_type == "phase" ) {
-            for (int32 i=0; i< spectrum2.Dim(); i++)
+            for (int32 i=start_frq; i< end_frq; i++)
                 temp(kk++)=spectrum2(i);
         } else if (opts_.output_layout == "block" ) {
-            for (int32 i=0; i< spectrum1.Dim(); i++)
+            for (int32 i=start_frq; i< end_frq; i++)
                 temp(kk++)=spectrum1(i);
-            for (int32 i=0; i< spectrum2.Dim(); i++)
+            for (int32 i=start_frq; i< end_frq; i++)
                 temp(kk++)=spectrum2(i);
         } else if (opts_.output_layout == "interleaved" ) {
-            for (int32 i=0; i< spectrum1.Dim(); i++) {
+            for (int32 i=start_frq; i< end_frq; i++) {
                 temp(kk++)=spectrum1(i);
                 temp(kk++)=spectrum2(i);
             }

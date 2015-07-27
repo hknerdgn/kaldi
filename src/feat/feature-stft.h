@@ -40,10 +40,14 @@ struct StftOptions {
     std::string output_type; // "real_and_imaginary", "amplitude_and_phase", "amplitude", "phase"
     std::string output_layout; // layout == "block" then len=N+2, that is RE, IM, RE, IM, ...
     // layout == "interleaved" then len=N+2, RE, RE, ..., IM, IM, ...
+    bool cut_dc;
+    bool cut_nyquist;
 
     StftOptions() :
         output_type("real_and_imaginary"),
-        output_layout("block") { }
+        output_layout("block"),
+	cut_dc(false),
+	cut_nyquist(false) { }
 
 
     void Register(OptionsItf *po) {
@@ -52,6 +56,8 @@ struct StftOptions {
                      "Valid types are real_and_imaginary (default), amplitude_and_phase, amplitude, phase");
         po->Register("output-layout", &output_layout,
                      "block: RE RE ... IM IM ... , interleaved: RE IM RE IM ...");
+        po->Register("cut-dc", &cut_dc, "Remove DC frequency (f=0) from the output.");
+        po->Register("cut-nyquist", &cut_nyquist, "Remove Nyquist frequency (k=Nfft/2 or f=Fs/2) from the output.");
     }
 };
 
