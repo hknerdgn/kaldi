@@ -1,0 +1,262 @@
+
+    # Macro definitions
+    #Feed Forward
+    FF(X1, W1, B1)
+    {
+        T=Times(W1,X1)
+        P=Plus(T, B1)
+    }
+
+    #Base feed Forward network, defines Bias and wieght parameters
+    BFF(in, rows, cols)
+    {
+        B=Parameter(rows, init=fixedvalue, value=0)
+        W=Parameter(rows, cols)
+        FF = FF(in, w, b)
+    }
+
+    #RectifiedLinear Base Feed Forward
+    RBFF(in,rowCount,colCount)
+    {
+        BFF = BFF(in, rowCount, colCount)
+        RL = RectifiedLinear(BFF)
+    }
+
+    #Rectified Linear Feed Forward
+    RFF(X2,W2,B2)
+    {   
+        FF = FF(X2, W2, B2)  
+        RL = RectifiedLinear(FF)
+    }
+
+    #RectifiedLinear Feed Forward with Dropout
+    RFFD(X3,W3,B3)
+    {
+        RFF=RFF(X3, W3, B3)
+        DO=Dropout(RFF)
+    }
+
+    #Sigmoid Base Feed Forward
+    SBFF(in,rowCount,colCount)
+    {
+        BFF = BFF(in, rowCount, colCount)
+        S = Sigmoid(BFF)
+    }
+
+    #Sigmoid Base Feed Forward with after activation bias
+    SBFFB(in,rowCount,colCount)
+    {
+        BFF = BFF(in, rowCount, colCount)
+        OB=Parameter(rowCount, init=fixedvalue, value=0)
+        S = Sigmoid(BFF)
+	SB = Plus(S,OB)
+    }
+
+    #RelU Feed Forward with after activation bias
+    RFFB(in,rowCount,colCount)
+    {
+        BFF = BFF(in, rowCount, colCount)
+        OB=Parameter(rowCount, init=fixedvalue, value=0)
+        S = RectifiedLinear(BFF)
+	SB = Plus(S,OB)
+    }
+
+
+    #Sigmoid Feed Forward
+    SFF(X2,W2,B2)
+    {
+        FF = FF(X2, W2, B2)
+        S = Sigmoid(FF)
+    }
+
+    #Sigmoid Feed Forward with Dropout
+    SFFD(X3,W3,B3)
+    {
+        SFF=SFF(X3, W3, B3)
+        DO=Dropout(SFF)
+    }
+
+    #Sigmoid Feed Forward with Dropout
+    SBFFD(inputVal,rowCount,colCount)
+    {
+        SBFF=SBFF(inputVal,rowCount,colCount)
+        DO=Dropout(SBFF)
+    }
+
+    #Sigmoid Feed Forward with after activation bias and Dropout
+    SBFFBD(inputVal,rowCount,colCount)
+    {
+        SBFFB=SBFFB(inputVal,rowCount,colCount)
+        DO=Dropout(SBFFB)
+    }
+
+    #RelU Feed Forward with after activation bias and Dropout
+    RFFBD(inputVal,rowCount,colCount)
+    {
+        RFFB=RFFB(inputVal,rowCount,colCount)
+        DO=Dropout(RFFB)
+    }
+
+    #SoftMax Feed Forward
+    SMFF(x,y,z, labels)
+    {
+        FF = FF(x,y,z)  
+        SM = CrossEntropyWithSoftmax(labels, FF)
+    }
+
+    #SoftMax Base Feed Forward
+    SMBFF(x,r,c, labels)
+    {
+        BFF = BFF(x,r,c)  
+        SM = CrossEntropyWithSoftmax(labels, BFF)
+    }
+
+    #inline Rectified Linear Feed Forward
+    RFF_R(x1, w1, b1)=RectifiedLinear(Plus(Times(w1,x1),b1))
+
+    #inline Rectified Linear Feed Forward with Dropout
+    RFFD_R(x1, w1, b1)=Dropout(RectifiedLinear(Plus(Times(w1,x1),b1)))
+
+
+    # Macro definitions
+    DelayNode(x)
+    {
+        D=Delay(x, delayInput=Dout, delayTime=1)
+    }
+
+    MeanVarNorm(x)
+    {   
+    xMean = Mean(x)
+        xStdDev = InvStdDev(x)
+        xNorm=PerDimMeanVarNormalization(x,xMean,xStdDev)
+    }
+
+    LogPrior(labels)
+    {
+    Prior=Mean(labels)
+    LogPrior=Log(Prior)
+    }   
+
+    LSTMComponent(inputDim, outputDim, inputVal)
+    {
+        Wxi = Parameter(outputDim, inputDim, init=Gaussian, initValueScale=2)
+        Wxf = Parameter(outputDim, inputDim, init=Gaussian, initValueScale=2)
+        Wxo = Parameter(outputDim, inputDim, init=Gaussian, initValueScale=2)
+        Wxc = Parameter(outputDim, inputDim, init=Gaussian, initValueScale=2)
+
+        #bi = Parameter(outputDim, init=fixedvalue, value=-1.0)
+        #bf = Parameter(outputDim, init=fixedvalue, value=-1.0)
+        #bo = Parameter(outputDim, init=fixedvalue, value=-1.0)
+        bi = Parameter(outputDim, init=fixedvalue, value=1.0)
+        bf = Parameter(outputDim, init=fixedvalue, value=-1.0)
+        bo = Parameter(outputDim, init=fixedvalue, value=1.0)
+        bc = Parameter(outputDim, init=fixedvalue, value=0.0)
+
+        Whi = Parameter(outputDim, outputDim, init=Gaussian, initValueScale=2)
+        Whf = Parameter(outputDim, outputDim, init=Gaussian, initValueScale=2)
+        Who = Parameter(outputDim, outputDim, init=Gaussian, initValueScale=2)
+        Whc = Parameter(outputDim, outputDim, init=Gaussian, initValueScale=2)
+
+        Wci = Parameter(outputDim, init=fixedvalue, value=0.0)
+        Wcf = Parameter(outputDim, init=fixedvalue, value=0.0)
+        Wco = Parameter(outputDim, init=fixedvalue, value=0.0)
+
+    #    delayHI = Delay(outputDim, output, delayTime=1)
+    #    delayHF = Delay(outputDim, output, delayTime=1)
+    #    delayHO = Delay(outputDim, output, delayTime=1)
+    #    delayHC = Delay(outputDim, output, delayTime=1)
+
+    #    delayCI = Delay(outputDim, cell, delayTime=1)
+    #    delayCF = Delay(outputDim, cell, delayTime=1)
+    #    delayCC = Delay(outputDim, cell, delayTime=1)
+
+    #   why are the above just not like this?
+        delayOut = Delay(outputDim, output, delayTime=1)
+        delayCel = Delay(outputDim, cell, delayTime=1)
+
+        WxiInput = Times(Wxi, inputVal)
+        WxfInput = Times(Wxf, inputVal)
+        WxoInput = Times(Wxo, inputVal)
+        WxcInput = Times(Wxc, inputVal)
+
+        WhidelayHI = Times(Whi, delayOut)
+        WhfdelayHF = Times(Whf, delayOut)
+        WhodelayHO = Times(Who, delayOut)
+        WhcdelayHC = Times(Whc, delayOut)
+
+        WcidelayCI = DiagTimes(Wci, delayCel)
+        WcfdelayCF = DiagTimes(Wcf, delayCel)
+
+        inGate = Sigmoid (Plus ( Plus (Plus (WxiInput, bi), WhidelayHI), WcidelayCI))
+
+        cellIn = ElementTimes(inGate, Tanh( Plus(WxcInput, Plus(WhcdelayHC, bc))))
+
+        fgGate = Sigmoid( Plus (Plus (Plus(WxfInput, bf), WhfdelayHF), WcfdelayCF))
+
+        cellFgPrev = ElementTimes(fgGate, delayCel)
+
+        cell = Plus(cellFgPrev, cellIn)
+
+        cell2otGate = DiagTimes(Wco, cell)
+
+        otGate = Sigmoid( Plus( Plus( Plus(WxoInput, bo), WhodelayHO), cell2otGate))
+
+        output = ElementTimes(otGate, Tanh(cell))
+    }
+
+    LSTMWithDelay(myinput, inputDim, outputDim, mydelay)
+    {
+        Wxi = Parameter(outputDim, inputDim)
+        Wxf = Parameter(outputDim, inputDim)
+        Wxo = Parameter(outputDim, inputDim)
+        Wxc = Parameter(outputDim, inputDim)
+
+        #bi = Parameter(outputDim, init=fixedvalue, value=-1.0)
+        #bf = Parameter(outputDim, init=fixedvalue, value=-1.0)
+        #bo = Parameter(outputDim, init=fixedvalue, value=-1.0)
+        bi = Parameter(outputDim, init=fixedvalue, value=-1.0)
+        bf = Parameter(outputDim, init=fixedvalue, value=-1.0)
+        bo = Parameter(outputDim, init=fixedvalue, value=-1.0)
+        bc = Parameter(outputDim, init=fixedvalue, value=0.0)
+
+        Whi = Parameter(outputDim, outputDim)
+        Whf = Parameter(outputDim, outputDim)
+        Who = Parameter(outputDim, outputDim)
+        Whc = Parameter(outputDim, outputDim)
+
+        Wci = Parameter(outputDim, init=fixedvalue, value=0.0)
+        Wcf = Parameter(outputDim, init=fixedvalue, value=0.0)
+        Wco = Parameter(outputDim, init=fixedvalue, value=0.0)
+
+        delayOut = Delay(outputDim, output, delayTime=mydelay)
+        delayCel = Delay(outputDim, cell, delayTime=mydelay)
+
+        WxiInput = Times(Wxi, myinput)
+        WxfInput = Times(Wxf, myinput)
+        WxoInput = Times(Wxo, myinput)
+        WxcInput = Times(Wxc, myinput)
+
+        WhidelayHI = Times(Whi, delayOut)
+        WhfdelayHF = Times(Whf, delayOut)
+        WhodelayHO = Times(Who, delayOut)
+        WhcdelayHC = Times(Whc, delayOut)
+
+        WcidelayCI = DiagTimes(Wci, delayCel)
+        WcfdelayCF = DiagTimes(Wcf, delayCel)
+
+        inGate = Sigmoid (Plus ( Plus (Plus (WxiInput, bi), WhidelayHI), WcidelayCI))
+
+        cellIn = ElementTimes(inGate, Tanh( Plus(WxcInput, Plus(WhcdelayHC, bc))))
+
+        fgGate = Sigmoid( Plus (Plus (Plus(WxfInput, bf), WhfdelayHF), WcfdelayCF))
+
+        cellFgPrev = ElementTimes(fgGate, delayCel)
+
+        cell = Plus(cellFgPrev, cellIn)
+
+        cell2otGate = DiagTimes(Wco, cell)
+
+        otGate = Sigmoid( Plus( Plus( Plus(WxoInput, bo), WhodelayHO), cell2otGate))
+
+        output = ElementTimes(otGate, Tanh(cell))
+    }

@@ -1,0 +1,63 @@
+load=ndlMacroDefine
+run=ndlCreateNetwork
+
+ndlMacroDefine=[
+    # Macro definitions
+
+    MeanVarNorm(x)
+    {
+    xMean = Mean(x)
+        xStdDev = InvStdDev(x)
+        xNorm=PerDimMeanVarNormalization(x,xMean,xStdDev)
+    }
+    LogPrior(labels)
+    {
+    Prior=Mean(labels)
+    LogPrior=Log(Prior)
+    }
+
+
+]
+
+ndlCreateNetwork=[
+	#define basic i/o
+	featDim=$featDim$
+	labelDim=$labelDim$
+	hiddenDim=$hiddenDim$
+	features=Input(featDim,tag=feature)
+	labels=Input(labelDim,tag=label)
+			       			       
+	# define network
+	featNorm = MeanVarNorm(features)
+	Wxh1=Parameter(hiddenDim,featDim)
+	Whh1=Parameter(hiddenDim,hiddenDim, init=fixedvalue, value=0)
+	Why1=Parameter(labelDim,hiddenDim)
+	Bx1 =Parameter(featDim, init=fixedvalue, value=0)
+	Bh1 =Parameter(hiddenDim, init=fixedvalue, value=0)
+	Bha1 =Parameter(hiddenDim, init=fixedvalue, value=0)
+	By1 =Parameter(labelDim, init=fixedvalue, value=0)
+
+	inith=Constant(0.5, rows=hiddenDim)
+	X1=Plus(featNorm,Bx1)
+	DX1=Dropout(X1)
+
+	Lxh1 = Times(Wxh1,DX1)
+	Lhh1 = Times(Whh1,inith)
+	Lnb1 = Plus(Lxh1,Lhh1)
+	Lp1  = Plus(Lnb1,Bh1)
+	L1   = Sigmoid(Lp1)
+	Lab1 = Plus(L1,Bha1)
+	DL1  = Dropout(Lab1)
+
+        NET_OUT1 = Plus(Times(Why1,DL1), By1)
+        CE= CrossEntropyWithSoftmax(labels, NET_OUT1)
+
+        Err = ErrorPrediction(labels,NET_OUT1)
+
+	CriteriaNodes=(CE)
+	EvalNodes=(Err, CE)
+
+        # define output (scaled loglikelihood)
+        logPrior = LogPrior(labels)
+        ScaledLogLikelihood=Minus(NET_OUT1,logPrior,tag=Output)
+]
