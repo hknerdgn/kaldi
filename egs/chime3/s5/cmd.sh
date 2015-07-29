@@ -22,6 +22,7 @@
 
 # To run locally, use:
 export train_cmd=run.pl
+export cntk_train_cmd=run.pl
 export decode_cmd=run.pl
 export highmem_cmd=run.pl
 export cuda_cmd=run.pl
