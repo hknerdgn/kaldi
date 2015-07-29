@@ -86,19 +86,32 @@ fbankdir=fbank-${fbanksize}/$noisyinput
 stftndir=stft/$noisyinput
 stftcdir=stft/$cleaninput
 
+
+
 if [ ! -d $fbankdir ]; then
 
 mkdir -p $noisyfeatdir
-for dataset in dt05_real et05_real tr05_real dt05_simu et05_simu tr05_simu; do
+#for dataset in dt05_real et05_real tr05_real dt05_simu et05_simu tr05_simu; do
+for dataset in dt05_simu et05_simu tr05_simu; do
   x=${dataset}_${noisyinput}
+  if [ ! -d data/$x ]; then
+	local/simu_enhan_chime3_data_prep_ch5.sh ${noisyinput} /local_data2/watanabe/work/201410CHiME3/CHiME3/data/audio/16kHz/isolated
+  fi
   utils/copy_data_dir.sh data/$x ${noisyfeatdir}/$x
   steps/make_fbank.sh --nj 10 --cmd "$train_cmd" --fbank-config ${fbank_config} \
     ${noisyfeatdir}/$x exp/make_fbank/$x $fbankdir || exit 1;
 done
 
-for dataset in dt05_real et05_real tr05_real dt05_simu et05_simu tr05_simu; do
+#for dataset in dt05_real et05_real tr05_real dt05_simu et05_simu tr05_simu; do
+for dataset in dt05_simu et05_simu tr05_simu; do
   x=${dataset}_${noisyinput}
   y=${dataset}_${cleaninput}
+  if [ ! -d data/$x ]; then
+	local/simu_enhan_chime3_data_prep_ch5.sh ${noisyinput} /local_data2/watanabe/work/201410CHiME3/CHiME3/data/audio/16kHz/isolated
+  fi
+  if [ ! -d data/$y ]; then
+	local/simu_enhan_chime3_data_prep_ch5.sh ${cleaninput} /local_data2/watanabe/work/201410CHiME3/CHiME3/data/audio/16kHz/reverberated
+  fi
   utils/copy_data_dir.sh data/$x ${noisystftdir}/$x
   utils/copy_data_dir.sh data/$y ${cleanstftdir}/$y
   steps/make_stft.sh --nj 10 --cmd "$train_cmd" --stft-config ${stft_config} \
