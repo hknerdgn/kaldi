@@ -5,7 +5,7 @@ CXX = g++
 
 OPENFST_VERSION = 1.3.4
 # Uncomment the next line to build with OpenFst-1.4.1.
-# OPENFST_VERSION = 1.4.1
+OPENFST_VERSION = 1.4.1
 # Note: OpenFst >= 1.4 requires C++11 support, hence you will need to use a
 # relatively recent C++ compiler, e.g. gcc >= 4.6, clang >= 3.0.
 
@@ -129,8 +129,14 @@ irstlm/Makefile: irstlm
 	(./regenerate-makefiles.sh || ./regenerate-makefiles.sh) && \
 	./configure --prefix `pwd` 
 
-irstlm:
-	svn -r 618 co --non-interactive --trust-server-cert https://svn.code.sf.net/p/irstlm/code/trunk irstlm
+irstlm: irstlm-5.80.08.tgz
+	tar xovf irstlm-5.80.08.tgz
+	ln -sf irstlm-5.80.08/trunk irstlm
+
+irstlm_tar_gz:
+	wget http://downloads.sourceforge.net/project/irstlm/irstlm/irstlm-5.80/irstlm-5.80.08.tgz
+
+#	svn -r 618 co --non-interactive --trust-server-cert https://svn.code.sf.net/p/irstlm/code/trunk irstlm
 
 atlas: ATLAS/include/cblas.h
 

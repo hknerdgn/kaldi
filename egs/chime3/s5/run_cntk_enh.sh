@@ -7,7 +7,8 @@ exit;
 
 # train and apply using cntk dnn model
 local/run_cntk_enhance.sh \
- --noisyinput isolated_beamformed_1sec_scwin_ch1_3-6 \
+ --noisyinput ch5 \
+ --cleaninput reverb_ch5 \
  --model dnn_6layer_enh \
  --cntk_config CNTK2_enh.config \
  --action TrainDNN
