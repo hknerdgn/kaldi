@@ -29,6 +29,7 @@ config_write=CNTK2_write_enh.config
 nj=20
 
 hiddenDim=512
+cellDim=1024
 bottleneckDim=256
 initModel=${model}.ndl
 addLayerMel=${model}.mel
