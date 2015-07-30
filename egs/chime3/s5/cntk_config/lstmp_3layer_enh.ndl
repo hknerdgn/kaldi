@@ -3,6 +3,66 @@ run=ndlCreateNetwork_LSTMP
 
 ndlMacroDefine=[
 
+    LSTMPComponent(inputDim, outputDim, cellDim, inputx)
+    {
+        Wxo = Parameter(cellDim, inputDim, init=uniform, initValueScale=1);
+        Wxi = Parameter(cellDim, inputDim, init=uniform, initValueScale=1);
+        Wxf = Parameter(cellDim, inputDim, init=uniform, initValueScale=1);
+        Wxc = Parameter(cellDim, inputDim, init=uniform, initValueScale=1);
+
+        bo = Parameter(cellDim, init=fixedValue, value=0.0);
+        bc = Parameter(cellDim, init=fixedValue, value=0.0);
+        bi = Parameter(cellDim, init=fixedValue, value=0.0);
+        bf = Parameter(cellDim, init=fixedValue, value=0.0);
+
+        Whi = Parameter(cellDim, outputDim, init=uniform, initValueScale=1);
+
+        Wci = Parameter(cellDim, init=uniform, initValueScale=1);
+
+
+        Whf = Parameter(cellDim, outputDim, init=uniform, initValueScale=1);
+        Wcf = Parameter(cellDim, init=uniform, initValueScale=1);
+        Who = Parameter(cellDim, outputDim, init=uniform, initValueScale=1);
+        Wco = Parameter(cellDim, init=uniform, initValueScale=1);
+        Whc = Parameter(cellDim, outputDim, init=uniform, initValueScale=1);
+
+        dh = Delay(outputDim, output, delayTime=1);
+        dc = Delay(cellDim, ct, delayTime=1);
+
+
+        Wxix = Times(Wxi, inputx);
+        Whidh = Times(Whi, dh);
+        Wcidc = DiagTimes(Wci, dc);
+
+        it = Sigmoid (Plus ( Plus (Plus (Wxix, bi), Whidh), Wcidc));
+
+        Wxcx = Times(Wxc, inputx);
+        Whcdh = Times(Whc, dh);
+        bit = ElementTimes(it, Tanh( Plus(Wxcx, Plus(Whcdh, bc))));
+
+        Wxfx = Times(Wxf, inputx);
+        Whfdh = Times(Whf, dh);
+        Wcfdc = DiagTimes(Wcf, dc);
+
+        ft = Sigmoid( Plus (Plus (Plus(Wxfx, bf), Whfdh), Wcfdc));
+
+        bft = ElementTimes(ft, dc);
+
+        ct = Plus(bft, bit);
+
+        Wxox  = Times(Wxo, inputx);
+        Whodh = Times(Who, dh);
+        Wcoct = DiagTimes(Wco, ct);
+
+        ot = Sigmoid( Plus( Plus( Plus(Wxox, bo), Whodh), Wcoct));
+
+        mt = ElementTimes(ot, Tanh(ct));
+
+        Wmr = Parameter(outputDim, cellDim, init=uniform, initValueScale=1);
+        output = Times(Wmr, mt); 
+
+    }
+
 ]
 
 ndlCreateNetwork_LSTMP=[

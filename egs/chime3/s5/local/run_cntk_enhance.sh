@@ -11,7 +11,7 @@
 num_threads=1
 device=0
 train_epochs=50
-epoch=49 # test epoch
+epoch=15 # test epoch
 noisyinput=ch5
 cleaninput=reverb_ch5
 stage=0
@@ -22,6 +22,8 @@ dtsubsetsize=all # num utterances (head -n) considered for validation
 
 # CNTK config variables
 start_from_scratch=false # delete experiment directory before starting the experiment
+extract_noisy_feat=false
+extract_clean_feat=false
 model=dnn_6layer_enh # {dnn_3layer,dnn_6layer,lstmp-3layer}
 action=TrainDNN # {TrainDNN, TrainLSTM}
 cntk_config=CNTK2_enh.config
@@ -34,10 +36,13 @@ cellDim=1024
 bottleneckDim=256
 initModel=${model}.ndl
 addLayerMel=${model}.mel
-wavdir="/local_data2/watanabe/work/201410CHiME3/CHiME3/data/audio/16kHz"
+chime3dir=/local_data2/watanabe/work/201410CHiME3/CHiME3
+
+echo "$0 $@"  # Print the command line for logging
 
 . parse_options.sh || exit 1;
 
+wavdir=$chime3dir/data/audio/16kHz
 noisyfeatdir=data-fbank-${fbanksize}/$noisyinput
 cleanstftdir=data-stft/$cleaninput
 noisystftdir=data-stft/$noisyinput
@@ -90,12 +95,27 @@ cat << EOF > ${stft_config}
 --output_layout=block
 EOF
 
-if [ ! -d $fbankdir ] || [ "$start_from_scratch" == true ]; then
+if [ ! -d $fbankdir ] || [ "$extract_noisy_feat" == true ]; then
 
-local/clean_wsj0_data_prep.sh /local_data2/watanabe/work/201410CHiME3/CHiME3/data/WSJ0
-local/simu_noisy_chime3_data_prep.sh /local_data2/watanabe/work/201410CHiME3/CHiME3
+local/clean_wsj0_data_prep.sh $chime3dir/data/WSJ0 || exit 1;
+local/wsj_prepare_dict.sh || exit 1;
+local/simu_noisy_chime3_data_prep.sh $chime3dir || exit 1;
+local/real_noisy_chime3_data_prep.sh $chime3dir || exit 1;
 
 mkdir -p $noisyfeatdir
+
+#if 0; then
+for dataset in dt05_real et05_real tr05_real; do
+  x=${dataset}_${noisyinput}
+  if [ ! -d data/$x ]; then
+	local/real_enhan_chime3_data_prep.sh ${noisyinput} ${wavdir}/${noisyinput}
+  fi
+  utils/copy_data_dir.sh data/$x ${noisyfeatdir}/$x
+  steps/make_fbank.sh --nj 10 --cmd "$train_cmd" --fbank-config ${fbank_config} \
+    ${noisyfeatdir}/$x exp/make_fbank/$x $fbankdir || exit 1;
+done
+#fi
+
 for dataset in dt05_simu et05_simu tr05_simu; do
   x=${dataset}_${noisyinput}
   if [ ! -d data/$x ]; then
@@ -106,21 +126,9 @@ for dataset in dt05_simu et05_simu tr05_simu; do
     ${noisyfeatdir}/$x exp/make_fbank/$x $fbankdir || exit 1;
 done
 
-if 0; then
-for dataset in dt05_real et05_real tr05_real; do
-  x=${dataset}_${noisyinput}
-  if [ ! -d data/$x ]; then
-	local/real_enhan_chime3_data_prep.sh ${noisyinput} ${wavdir}/${noisyinput}
-  fi
-  utils/copy_data_dir.sh data/$x ${noisyfeatdir}/$x
-  steps/make_fbank.sh --nj 10 --cmd "$train_cmd" --fbank-config ${fbank_config} \
-    ${noisyfeatdir}/$x exp/make_fbank/$x $fbankdir || exit 1;
-done
 fi
 
-fi
-
-if [ ! -d $noisystftdir ] || [ ! -d $stftndir ] || [ "$start_from_scratch" = true ]; then
+if [ ! -d $noisystftdir ] || [ ! -d $stftndir ] || [ "$extract_noisy_feat" = true ]; then
 
 for dataset in dt05_simu et05_simu tr05_simu; do
   x=${dataset}_${noisyinput}
@@ -132,7 +140,7 @@ for dataset in dt05_simu et05_simu tr05_simu; do
     ${noisystftdir}/$x exp/make_stft/$x $stftndir || exit 1;
 done
 
-if 0; then
+#if 0; then
 
 for dataset in dt05_real et05_real tr05_real; do
   x=${dataset}_${noisyinput}
@@ -144,7 +152,7 @@ for dataset in dt05_real et05_real tr05_real; do
     ${noisystftdir}/$x exp/make_stft/$x $stftndir || exit 1;
 done
 
-fi
+#fi
 
 # make mixed training set from real and simulation noisy and clean training data
 # multi = simu + real
@@ -154,7 +162,7 @@ utils/combine_data.sh data-fbank/et05_multi_$noisyinput data-fbank/et05_simu_$no
 
 fi
 
-if [ ! -d $cleanstftdir ] || [ ! -d $stftcdir ] || [ "$start_from_scratch" = true ]; then
+if [ ! -d $cleanstftdir ] || [ ! -d $stftcdir ] || [ "$extract_clean_feat"= true ]; then
 
 # clean data only available for simulated data (for now)
 for dataset in dt05_simu et05_simu tr05_simu; do
@@ -250,6 +258,7 @@ ExpDir=$expdir
 modelName=$expdir/cntk_model/cntk.dnn
 
 hiddenDim=${hiddenDim}
+cellDim=${cellDim}
 bottleneckDim=${bottleneckDim}
 
 initModel=${expdir}/${initModel}
@@ -287,10 +296,22 @@ if [ $num_threads -gt 1 ]; then
 fi
 
 
+if [ -e $expdir/log/cntk.1.log ]; then
+  tag=`date +%Y_%m_%d_%H_%M_%S`
+  cp $expdir/log/cntk.1.log $expdir/log/cntk.$tag.log
+fi
+
 $cntk_train_cmd $parallel_opts JOB=1:1 $expdir/log/cntk.JOB.log \
   cntk configFile=${expdir}/Base.config configFile=${expdir}/${cntk_config} DeviceNumber=$device
 
-echo "$0 training successfuly finished.. $dir"
+if [ -e $expdir/log/cntk.1.log ]; then
+  tag=`date +%Y_%m_%d_%H_%M_%S`
+  mv $expdir/log/cntk.1.log $expdir/log/cntk.$tag.log
+fi
+
+echo "$0 training (possibly) successfuly finished..."
+echo "Model files are in $expdir/cntk_model"
+echo "---------------"
 
 fi
 
@@ -301,15 +322,21 @@ if [ $stage -le 2 ] ; then
   cnmodel=$expdir/cntk_model/cntk.dnn.${epoch}
   action=write
 
-  #for set in {dt05_real,dt05_simu,et05_real,et05_simu}; do
-  for set in {dt05_simu,et05_simu}; do
-    datafeat=$noisyfeatdir/${set}_${noisyinput}
-    datastft=$noisystftdir/${set}_${noisyinput}
-    cntk_string="cntk configFile=${expdir}/${config_write} DeviceNumber=-1 modelName=$cnmodel featDim=$featDim stftDim=$stftDim hstftDim=$hstftDim action=$action ExpDir=$expdir"
-    # run in the background and use wait
-    local/enhance_cntk.sh --stftconf $stft_config  --nj $njenh --cmd "$decode_cmd" --num-threads ${num_threads} --parallel-opts '-pe smp 4' $wavdir $datafeat $datastft $expdir/enhance_${set}_${epoch} "$cntk_string" &
-  done
-  wait;
+  if [ -e $cnmodel ]; then
+   echo "Enhancing with trained model from epoch ${epoch}"
+ 
+   #for set in {dt05_simu,et05_simu}; do
+   for set in {dt05_real,dt05_simu,et05_real,et05_simu}; do
+     datafeat=$noisyfeatdir/${set}_${noisyinput}
+     datastft=$noisystftdir/${set}_${noisyinput}
+     cntk_string="cntk configFile=${expdir}/${config_write} DeviceNumber=-1 modelName=$cnmodel featDim=$featDim stftDim=$stftDim hstftDim=$hstftDim action=$action ExpDir=$expdir"
+     # run in the background and use wait
+     local/enhance_cntk.sh --stftconf $stft_config  --nj $njenh --cmd "$decode_cmd" --num-threads ${num_threads} --parallel-opts '-pe smp 4' $wavdir $datafeat $datastft $expdir/enhance_${set}_${epoch} "$cntk_string" &
+   done
+   wait;
+  else
+     echo "$cnmodel not found. Try to specify another epoch number with --epoch"
+  fi
 
 fi
 
