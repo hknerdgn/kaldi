@@ -13,13 +13,15 @@ ndlCreateNetwork=[
 	hiddenDim=$hiddenDim$
 	hstftDim=$hstftDim$
 	features=InputValue(featDim, tag=feature)
+        scalespec=constant(0.00001)
+        iscalespec=constant(100000)
 	stftn=InputValue(stftDim, tag=feature)
 	stftc=InputValue(stftDim, tag=feature)
 
-	stftnMag = RowSlice(0, hstftDim, stftn);
+	stftnMag = Scale(scalespec,RowSlice(0, hstftDim, stftn));
 	stftnPhase = RowSlice(hstftDim, hstftDim, stftn);
 
-	stftcMag = RowSlice(0, hstftDim, stftc);
+	stftcMag = Scale(scalespec,RowSlice(0, hstftDim, stftc));
 	stftcPhase = RowSlice(hstftDim, hstftDim, stftc);
 			       			       
 	 # define network
@@ -31,7 +33,12 @@ ndlCreateNetwork=[
          L5 = SBFF(L4,hiddenDim,hiddenDim)
          Mask = SBFF(L5,hstftDim,hiddenDim)
 	 MaskedNoisy = ElementTimes(Mask, stftnMag)
-	 MaskedNoisywithPhase = RowStack(MaskedNoisy, stftnPhase, tag=output)
+	 SmaskedNoisy = Scale(iscalespec, MaskedNoisy)
+	 MaskedNoisywithPhase = RowStack(SmaskedNoisy, stftnPhase, tag=output)
 
 	 MSE = SquareError(MaskedNoisy, stftcMag, tag=criteria)
+	 MaskSum = SumElements(Mask, tag=eval)
+	 NoisyMSE = SquareError(stftnMag, stftcMag, tag=eval)
+	 CleanSum = SumElements(stftcMag, tag=eval)
+	 NoisySum = SumElements(stftnMag, tag=eval)
 ]

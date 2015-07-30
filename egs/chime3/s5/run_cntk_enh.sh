@@ -14,6 +14,17 @@ local/run_cntk_enhance.sh \
  --action TrainDNN
 exit;
 
+local/run_cntk_enhance.sh \
+ --noisyinput ch5 \
+ --cleaninput reverb_ch5 \
+ --model dnn_6layer_enh \
+ --cntk_config CNTK2_enh.config \
+ --action TrainDNN \ 
+ --lrps 0.001 \
+ --trsubsetsize 1000 \
+ --dtsubsetsize 500
+exit;
+
 #apply the trained cntk model only to write down enhanced files
 local/run_cntk_enhance.sh \
  --stage 2 \

@@ -16,6 +16,9 @@ noisyinput=ch5
 cleaninput=reverb_ch5
 stage=0
 fbanksize=100
+lrps=0.001 #learning rate per sample for cntk
+trsubsetsize=1000 # num utterances (head -n) considered for training
+dtsubsetsize=500 # num utterances (head -n) considered for validation
 
 noisyfeatdir=data-fbank-${fbanksize}/$noisyinput
 cleanstftdir=data-stft/$cleaninput
@@ -150,22 +153,21 @@ stftn_dt="scp:${noisystftdir}/dt05_simu_${noisyinput}/feats.scp"
 stftc_tr="scp:${cleanstftdir}/tr05_simu_${cleaninput}/feats.scp"
 stftc_dt="scp:${cleanstftdir}/dt05_simu_${cleaninput}/feats.scp"
 
-subsetsize=100
-head -n $subsetsize ${noisyfeatdir}/tr05_simu_${noisyinput}/feats.scp > ${noisyfeatdir}/tr05_simu_${noisyinput}/feats_$subsetsize.scp
-head -n $subsetsize ${noisyfeatdir}/dt05_simu_${noisyinput}/feats.scp > ${noisyfeatdir}/dt05_simu_${noisyinput}/feats_$subsetsize.scp
-head -n $subsetsize ${noisystftdir}/tr05_simu_${noisyinput}/feats.scp > ${noisystftdir}/tr05_simu_${noisyinput}/feats_$subsetsize.scp
-head -n $subsetsize ${noisystftdir}/dt05_simu_${noisyinput}/feats.scp > ${noisystftdir}/dt05_simu_${noisyinput}/feats_$subsetsize.scp
-head -n $subsetsize ${cleanstftdir}/tr05_simu_${cleaninput}/feats.scp > ${cleanstftdir}/tr05_simu_${cleaninput}/feats_$subsetsize.scp
-head -n $subsetsize ${cleanstftdir}/dt05_simu_${cleaninput}/feats.scp > ${cleanstftdir}/dt05_simu_${cleaninput}/feats_$subsetsize.scp
+head -n $trsubsetsize ${noisyfeatdir}/tr05_simu_${noisyinput}/feats.scp > ${noisyfeatdir}/tr05_simu_${noisyinput}/feats_$trsubsetsize.scp
+head -n $trsubsetsize ${noisystftdir}/tr05_simu_${noisyinput}/feats.scp > ${noisystftdir}/tr05_simu_${noisyinput}/feats_$trsubsetsize.scp
+head -n $trsubsetsize ${cleanstftdir}/tr05_simu_${cleaninput}/feats.scp > ${cleanstftdir}/tr05_simu_${cleaninput}/feats_$trsubsetsize.scp
+head -n $dtsubsetsize ${noisyfeatdir}/dt05_simu_${noisyinput}/feats.scp > ${noisyfeatdir}/dt05_simu_${noisyinput}/feats_$dtsubsetsize.scp
+head -n $dtsubsetsize ${noisystftdir}/dt05_simu_${noisyinput}/feats.scp > ${noisystftdir}/dt05_simu_${noisyinput}/feats_$dtsubsetsize.scp
+head -n $dtsubsetsize ${cleanstftdir}/dt05_simu_${cleaninput}/feats.scp > ${cleanstftdir}/dt05_simu_${cleaninput}/feats_$dtsubsetsize.scp
 
-feats_tr="scp:${noisyfeatdir}/tr05_simu_${noisyinput}/feats_$subsetsize.scp"
-feats_dt="scp:${noisyfeatdir}/dt05_simu_${noisyinput}/feats_$subsetsize.scp"
-stftn_tr="scp:${noisystftdir}/tr05_simu_${noisyinput}/feats_$subsetsize.scp"
-stftn_dt="scp:${noisystftdir}/dt05_simu_${noisyinput}/feats_$subsetsize.scp"
-stftc_tr="scp:${cleanstftdir}/tr05_simu_${cleaninput}/feats_$subsetsize.scp"
-stftc_dt="scp:${cleanstftdir}/dt05_simu_${cleaninput}/feats_$subsetsize.scp"
+feats_tr="scp:${noisyfeatdir}/tr05_simu_${noisyinput}/feats_$trsubsetsize.scp"
+stftn_tr="scp:${noisystftdir}/tr05_simu_${noisyinput}/feats_$trsubsetsize.scp"
+stftc_tr="scp:${cleanstftdir}/tr05_simu_${cleaninput}/feats_$trsubsetsize.scp"
+feats_dt="scp:${noisyfeatdir}/dt05_simu_${noisyinput}/feats_$dtsubsetsize.scp"
+stftn_dt="scp:${noisystftdir}/dt05_simu_${noisyinput}/feats_$dtsubsetsize.scp"
+stftc_dt="scp:${cleanstftdir}/dt05_simu_${cleaninput}/feats_$dtsubsetsize.scp"
 
-frame_context=7  # one sided context size
+frame_context=7  # one sided context size (for DNN)
 baseFeatDim=`feat-to-dim ${feats_tr} -`
 featDim=`echo "$baseFeatDim * (2 * $frame_context + 1)"|bc`
 stftDim=`feat-to-dim ${stftn_tr} -`
@@ -217,6 +219,7 @@ featDim=${featDim}
 stftDim=${stftDim}
 hstftDim=${hstftDim}
 featureTransform=NO_FEATURE_TRANSFORM
+lrps=${lrps}
 
 inputCounts=${expdir}/cntk_train.counts
 inputFeats=${expdir}/cntk_train.feats
