@@ -30,6 +30,7 @@ nj=20
 njenh=4
 
 hiddenDim=512
+cellDim=1024
 bottleneckDim=256
 initModel=${model}.ndl
 addLayerMel=${model}.mel
