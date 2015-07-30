@@ -339,8 +339,10 @@ void WaveData::Write(std::ostream &os) const {
     for (int32 j = 0; j < num_chan; j++) {
       int32 elem = static_cast<int32>(data_ptr[j*stride + i]);
       int16 elem_16(elem);
-      if (static_cast<int32>(elem_16) != elem)
-        KALDI_ERR << "Wave file is out of range for 16-bit.";
+      if (static_cast<int32>(elem_16) != elem) {
+        KALDI_WARN << "Wave file is out of range for 16-bit.";
+	elem_16 = static_cast<int16>(data_ptr[j*stride + i]); // not sure about int32 casting to int16 when out of range
+      }
 #ifdef __BIG_ENDIAN__
       KALDI_SWAP2(elem_16);
 #endif

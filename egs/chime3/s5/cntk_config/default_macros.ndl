@@ -1,4 +1,17 @@
-
+    ElementDivide(X,Y)
+    {
+	R=Exp(Minus(Log(X),Log(Y)))
+    }
+    # a is a scalar
+    MinSc(a,X)
+    {
+	M=Negate(Minus(RectifiedLinear(Negate(Minus(X,a))),a))
+    }
+    # a is a scalar
+    MaxSc(a,X)
+    {
+	M=Minus(RectifiedLinear(Plus(X,a)),a)
+    }
     # Macro definitions
     #Feed Forward
     FF(X1, W1, B1)

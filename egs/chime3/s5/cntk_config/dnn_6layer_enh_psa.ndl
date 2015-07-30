@@ -1,0 +1,56 @@
+load=ndlMacroDefine
+run=ndlCreateNetwork
+
+ndlMacroDefine=[
+    
+]
+
+ndlCreateNetwork=[
+
+	#define basic i/o
+	featDim=$featDim$
+	stftDim=$stftDim$
+	hiddenDim=$hiddenDim$
+	hstftDim=$hstftDim$
+	features=InputValue(featDim, tag=feature)
+        scalespec=constant(0.00001)
+        One=constant(1,rows=1,cols=1)
+        iscalespec=constant(100000)
+	stftn=InputValue(stftDim, tag=feature)
+	stftc=InputValue(stftDim, tag=feature)
+
+	stftnMag = Scale(scalespec,RowSlice(0, hstftDim, stftn));
+	stftnPhase = RowSlice(hstftDim, hstftDim, stftn);
+
+	stftcMag = Scale(scalespec,RowSlice(0, hstftDim, stftc));
+	stftcPhase = RowSlice(hstftDim, hstftDim, stftc);
+			       			       
+	 # define network
+	 featNorm = MeanVarNorm(features)
+	 L1 = SBFF(featNorm,hiddenDim,featDim)
+	 L2 = SBFF(L1,hiddenDim,hiddenDim)
+	 L3 = SBFF(L2,hiddenDim,hiddenDim)
+	 L4 = SBFF(L3,hiddenDim,hiddenDim)
+         L5 = SBFF(L4,hiddenDim,hiddenDim)
+         Mask = SBFF(L5,hstftDim,hiddenDim)
+	 MaskedNoisy = ElementTimes(Mask, stftnMag)
+
+	 PhaseDifference = Minus(stftnPhase, stftcPhase)
+	 CosPhaseDifference = Cos(PhaseDifference)
+	 CleanPSATarget = ElementTimes(stftcMag, CosPhaseDifference)
+
+	 SmaskedNoisy = Scale(iscalespec, MaskedNoisy)
+	 MaskedNoisywithPhase = RowStack(SmaskedNoisy, stftnPhase, tag=output)
+
+	 IdealPSAMask = ElementDivide(CleanPSATarget,stftnMag)
+	 IdealPSAMaskLim = MinSc(One,IdealPSAMask)
+	 IdealPSAMaskLimNoisy = ElementTimes(IdealPSAMaskLim, stftnMag)
+
+	 MSE = SquareError(MaskedNoisy, CleanPSATarget, tag=criteria)
+	 MaskSum = SumElements(Mask, tag=eval)
+	 # for debugging only
+	 NoisyMSE = SquareError(stftnMag, CleanPSATarget, tag=eval)
+	 BestMSE = SquareError(IdealPSAMaskLimNoisy, CleanPSATarget, tag=eval)
+	 #CleanSum = SumElements(stftcMag, tag=eval)
+	 #NoisySum = SumElements(stftnMag, tag=eval)
+]
