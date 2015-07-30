@@ -34,17 +34,23 @@ ndlCreateNetwork=[
          L5 = SBFF(L4,hiddenDim,hiddenDim)
          Mask = SBFF(L5,hstftDim,hiddenDim)
 	 MaskedNoisy = ElementTimes(Mask, stftnMag)
+
+	 PhaseDifference = Minus(stftnPhase, stftcPhase)
+	 CosPhaseDifference = Cos(PhaseDifference)
+	 CleanPSATarget = ElementTimes(stftcMag, CosPhaseDifference)
+
 	 SmaskedNoisy = Scale(iscalespec, MaskedNoisy)
 	 MaskedNoisywithPhase = RowStack(SmaskedNoisy, stftnPhase, tag=output)
 
-	 IdealMagMask = ElementDivide(stftcMag,stftnMag)
-	 IdealMagMaskLim = MinSc(One,IdealMagMask)
-	 IdealMagMaskLimNoisy = ElementTimes(IdealMagMaskLim, stftnMag)
+	 IdealPSAMask = ElementDivide(CleanPSATarget,stftnMag)
+	 IdealPSAMaskLim = MinSc(One,IdealPSAMask)
+	 IdealPSAMaskLimNoisy = ElementTimes(IdealPSAMaskLim, stftnMag)
 
-	 MSE = SquareError(MaskedNoisy, stftcMag, tag=criteria)
+	 MSE = SquareError(MaskedNoisy, CleanPSATarget, tag=criteria)
 	 MaskSum = SumElements(Mask, tag=eval)
-	 NoisyMSE = SquareError(stftnMag, stftcMag, tag=eval)
-	 BestMSE = SquareError(IdealMagMaskLimNoisy, stftcMag, tag=eval)
-	 CleanSum = SumElements(stftcMag, tag=eval)
-	 NoisySum = SumElements(stftnMag, tag=eval)
+	 # for debugging only
+	 NoisyMSE = SquareError(stftnMag, CleanPSATarget, tag=eval)
+	 BestMSE = SquareError(IdealPSAMaskLimNoisy, CleanPSATarget, tag=eval)
+	 #CleanSum = SumElements(stftcMag, tag=eval)
+	 #NoisySum = SumElements(stftnMag, tag=eval)
 ]

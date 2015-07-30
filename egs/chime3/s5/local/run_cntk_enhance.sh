@@ -11,18 +11,15 @@
 
 num_threads=1
 device=0
-epoch=30
+train_epochs=50
+epoch=49 # test epoch
 noisyinput=ch5
 cleaninput=reverb_ch5
 stage=0
 fbanksize=100
 lrps=0.001 #learning rate per sample for cntk
-trsubsetsize=1000 # num utterances (head -n) considered for training
-dtsubsetsize=500 # num utterances (head -n) considered for validation
-
-noisyfeatdir=data-fbank-${fbanksize}/$noisyinput
-cleanstftdir=data-stft/$cleaninput
-noisystftdir=data-stft/$noisyinput
+trsubsetsize=all # num utterances (head -n) considered for training
+dtsubsetsize=all # num utterances (head -n) considered for validation
 
 # CNTK config variables
 start_from_scratch=false # delete experiment directory before starting the experiment
@@ -39,9 +36,20 @@ addLayerMel=${model}.mel
 
 . parse_options.sh || exit 1;
 
+noisyfeatdir=data-fbank-${fbanksize}/$noisyinput
+cleanstftdir=data-stft/$cleaninput
+noisystftdir=data-stft/$noisyinput
+
 output=enh_${noisyinput}_${model}
 
 expdir=exp/cntk_${output}
+
+fbankdir=fbank-${fbanksize}/$noisyinput
+stftndir=stft/$noisyinput
+stftcdir=stft/$cleaninput
+wavdir="/local_data2/watanabe/work/201410CHiME3/CHiME3/data/audio/16kHz"
+fbank_config=conf/fbank_${fbanksize}.conf
+stft_config=conf/stft.conf
 
 if [ $stage -le 0 ]; then
 
@@ -52,9 +60,6 @@ if [ "$start_from_scratch" = true ]; then
  rm -rf $expdir
 fi
 
-
-fbank_config=conf/fbank_${fbanksize}.conf
-stft_config=conf/stft.conf
 
 cat << EOF > ${fbank_config}
 --window-type=hamming # disable Dans window, use the standard
@@ -84,20 +89,12 @@ cat << EOF > ${stft_config}
 --output_layout=block
 EOF
 
-
-# make fbanksize-dim fbank features for noisy data
-fbankdir=fbank-${fbanksize}/$noisyinput
-stftndir=stft/$noisyinput
-stftcdir=stft/$cleaninput
-wavdir="/local_data2/watanabe/work/201410CHiME3/CHiME3/data/audio/16kHz"
-
 if [ ! -d $fbankdir ]; then
 
 local/clean_wsj0_data_prep.sh /local_data2/watanabe/work/201410CHiME3/CHiME3/data/WSJ0
 local/simu_noisy_chime3_data_prep.sh /local_data2/watanabe/work/201410CHiME3/CHiME3
 
 mkdir -p $noisyfeatdir
-#for dataset in dt05_real et05_real tr05_real dt05_simu et05_simu tr05_simu; do
 for dataset in dt05_simu et05_simu tr05_simu; do
   x=${dataset}_${noisyinput}
   if [ ! -d data/$x ]; then
@@ -108,26 +105,38 @@ for dataset in dt05_simu et05_simu tr05_simu; do
     ${noisyfeatdir}/$x exp/make_fbank/$x $fbankdir || exit 1;
 done
 
+for dataset in dt05_real et05_real tr05_real; do
+  x=${dataset}_${noisyinput}
+  if [ ! -d data/$x ]; then
+	local/real_enhan_chime3_data_prep.sh ${noisyinput} ${wavdir}/${noisyinput}
+  fi
+  utils/copy_data_dir.sh data/$x ${noisyfeatdir}/$x
+  steps/make_fbank.sh --nj 10 --cmd "$train_cmd" --fbank-config ${fbank_config} \
+    ${noisyfeatdir}/$x exp/make_fbank/$x $fbankdir || exit 1;
+done
+
 fi
 
-if [ ! -d $noisystftdir ]; then
+if [ ! -d $noisystftdir ] || [ ! -d $stftndir ]; then
 
-#for dataset in dt05_real et05_real tr05_real dt05_simu et05_simu tr05_simu; do
 for dataset in dt05_simu et05_simu tr05_simu; do
   x=${dataset}_${noisyinput}
-  y=${dataset}_${cleaninput}
   if [ ! -d data/$x ]; then
 	local/simu_enhan_chime3_data_prep.sh ${noisyinput} $wavdir/${noisyinput}
   fi
-  if [ ! -d data/$y ]; then
-	local/simu_enhan_chime3_data_prep.sh ${cleaninput} $wavdir/${cleaninput}
-  fi
   utils/copy_data_dir.sh data/$x ${noisystftdir}/$x
-  utils/copy_data_dir.sh data/$y ${cleanstftdir}/$y
   local/make_stft.sh --nj 10 --cmd "$train_cmd" --stft-config ${stft_config} \
     ${noisystftdir}/$x exp/make_stft/$x $stftndir || exit 1;
+done
+
+for dataset in dt05_real et05_real tr05_real; do
+  x=${dataset}_${noisyinput}
+  if [ ! -d data/$x ]; then
+	local/real_enhan_chime3_data_prep.sh ${noisyinput} $wavdir/${noisyinput}
+  fi
+  utils/copy_data_dir.sh data/$x ${noisystftdir}/$x
   local/make_stft.sh --nj 10 --cmd "$train_cmd" --stft-config ${stft_config} \
-    ${cleanstftdir}/$y exp/make_stft/$y $stftcdir || exit 1;
+    ${noisystftdir}/$x exp/make_stft/$x $stftndir || exit 1;
 done
 
 # make mixed training set from real and simulation noisy and clean training data
@@ -136,36 +145,60 @@ utils/combine_data.sh data-fbank/tr05_multi_$noisyinput data-fbank/tr05_simu_$no
 utils/combine_data.sh data-fbank/dt05_multi_$noisyinput data-fbank/dt05_simu_$noisyinput data-fbank/dt05_real_$noisyinput
 utils/combine_data.sh data-fbank/et05_multi_$noisyinput data-fbank/et05_simu_$noisyinput data-fbank/et05_real_$noisyinput
 
-utils/combine_data.sh data-fbank/tr05_multi_$cleaninput data-fbank/tr05_simu_$cleaninput data-fbank/tr05_real_$cleaninput
-utils/combine_data.sh data-fbank/dt05_multi_$cleaninput data-fbank/dt05_simu_$cleaninput data-fbank/dt05_real_$cleaninput
-utils/combine_data.sh data-fbank/et05_multi_$cleaninput data-fbank/et05_simu_$cleaninput data-fbank/et05_real_$cleaninput
+fi
 
-fi # -d noisystftdir
+if [ ! -d $cleanstftdir ] || [ ! -d $stftcdir ]; then
+
+# clean data only available for simulated data (for now)
+for dataset in dt05_simu et05_simu tr05_simu; do
+  y=${dataset}_${cleaninput}
+  if [ ! -d data/$y ]; then
+	local/simu_enhan_chime3_data_prep.sh ${cleaninput} $wavdir/${cleaninput}
+  fi
+  utils/copy_data_dir.sh data/$y ${cleanstftdir}/$y
+  local/make_stft.sh --nj 10 --cmd "$train_cmd" --stft-config ${stft_config} \
+    ${cleanstftdir}/$y exp/make_stft/$y $stftcdir || exit 1;
+done
+
+#utils/combine_data.sh data-fbank/tr05_multi_$cleaninput data-fbank/tr05_simu_$cleaninput data-fbank/tr05_real_$cleaninput
+#utils/combine_data.sh data-fbank/dt05_multi_$cleaninput data-fbank/dt05_simu_$cleaninput data-fbank/dt05_real_$cleaninput
+#utils/combine_data.sh data-fbank/et05_multi_$cleaninput data-fbank/et05_simu_$cleaninput data-fbank/et05_real_$cleaninput
+
+fi
 
 fi # stage -le 0
 
 ######
 
 feats_tr="scp:${noisyfeatdir}/tr05_simu_${noisyinput}/feats.scp"
-feats_dt="scp:${noisyfeatdir}/dt05_simu_${noisyinput}/feats.scp"
 stftn_tr="scp:${noisystftdir}/tr05_simu_${noisyinput}/feats.scp"
-stftn_dt="scp:${noisystftdir}/dt05_simu_${noisyinput}/feats.scp"
 stftc_tr="scp:${cleanstftdir}/tr05_simu_${cleaninput}/feats.scp"
+
+feats_dt="scp:${noisyfeatdir}/dt05_simu_${noisyinput}/feats.scp"
+stftn_dt="scp:${noisystftdir}/dt05_simu_${noisyinput}/feats.scp"
 stftc_dt="scp:${cleanstftdir}/dt05_simu_${cleaninput}/feats.scp"
+
+if [ x$trsubsetsize != "x" ] && [ x$trsubsetsize != "xall" ]; then
 
 head -n $trsubsetsize ${noisyfeatdir}/tr05_simu_${noisyinput}/feats.scp > ${noisyfeatdir}/tr05_simu_${noisyinput}/feats_$trsubsetsize.scp
 head -n $trsubsetsize ${noisystftdir}/tr05_simu_${noisyinput}/feats.scp > ${noisystftdir}/tr05_simu_${noisyinput}/feats_$trsubsetsize.scp
 head -n $trsubsetsize ${cleanstftdir}/tr05_simu_${cleaninput}/feats.scp > ${cleanstftdir}/tr05_simu_${cleaninput}/feats_$trsubsetsize.scp
-head -n $dtsubsetsize ${noisyfeatdir}/dt05_simu_${noisyinput}/feats.scp > ${noisyfeatdir}/dt05_simu_${noisyinput}/feats_$dtsubsetsize.scp
-head -n $dtsubsetsize ${noisystftdir}/dt05_simu_${noisyinput}/feats.scp > ${noisystftdir}/dt05_simu_${noisyinput}/feats_$dtsubsetsize.scp
-head -n $dtsubsetsize ${cleanstftdir}/dt05_simu_${cleaninput}/feats.scp > ${cleanstftdir}/dt05_simu_${cleaninput}/feats_$dtsubsetsize.scp
-
 feats_tr="scp:${noisyfeatdir}/tr05_simu_${noisyinput}/feats_$trsubsetsize.scp"
 stftn_tr="scp:${noisystftdir}/tr05_simu_${noisyinput}/feats_$trsubsetsize.scp"
 stftc_tr="scp:${cleanstftdir}/tr05_simu_${cleaninput}/feats_$trsubsetsize.scp"
+
+fi
+
+if [ x$dtsubsetsize != "x" ] && [ x$dtsubsetsize != "xall" ]; then
+
+head -n $dtsubsetsize ${noisyfeatdir}/dt05_simu_${noisyinput}/feats.scp > ${noisyfeatdir}/dt05_simu_${noisyinput}/feats_$dtsubsetsize.scp
+head -n $dtsubsetsize ${noisystftdir}/dt05_simu_${noisyinput}/feats.scp > ${noisystftdir}/dt05_simu_${noisyinput}/feats_$dtsubsetsize.scp
+head -n $dtsubsetsize ${cleanstftdir}/dt05_simu_${cleaninput}/feats.scp > ${cleanstftdir}/dt05_simu_${cleaninput}/feats_$dtsubsetsize.scp
 feats_dt="scp:${noisyfeatdir}/dt05_simu_${noisyinput}/feats_$dtsubsetsize.scp"
 stftn_dt="scp:${noisystftdir}/dt05_simu_${noisyinput}/feats_$dtsubsetsize.scp"
 stftc_dt="scp:${cleanstftdir}/dt05_simu_${cleaninput}/feats_$dtsubsetsize.scp"
+
+fi
 
 frame_context=7  # one sided context size (for DNN)
 baseFeatDim=`feat-to-dim ${feats_tr} -`
@@ -215,11 +248,19 @@ bottleneckDim=${bottleneckDim}
 initModel=${expdir}/${initModel}
 addLayerMel=${expdir}/${addLayerMel}
 
+baseFeatDim=$baseFeatDim
+RowSliceStart=$RowSliceStart 
 featDim=${featDim}
 stftDim=${stftDim}
 hstftDim=${hstftDim}
 featureTransform=NO_FEATURE_TRANSFORM
 lrps=${lrps}
+trainEpochs=${train_epochs}
+
+DeviceNumber=$device
+action=${action}
+ndlfile=$ndlfile
+numThreads=$num_threads
 
 inputCounts=${expdir}/cntk_train.counts
 inputFeats=${expdir}/cntk_train.feats
@@ -241,11 +282,9 @@ fi
 
 
 $cntk_train_cmd $parallel_opts JOB=1:1 $expdir/log/cntk.JOB.log \
-  cntk configFile=${expdir}/Base.config configFile=${expdir}/${cntk_config} \
-  baseFeatDim=$baseFeatDim RowSliceStart=$RowSliceStart \
-  DeviceNumber=$device action=${action} ndlfile=$ndlfile numThreads=$num_threads
+  cntk configFile=${expdir}/Base.config configFile=${expdir}/${cntk_config}
 
-echo "$0 successfuly finished.. $dir"
+echo "$0 training successfuly finished.. $dir"
 
 fi
 
@@ -255,20 +294,19 @@ if [ $stage -le 2 ] ; then
   cp cntk_config/${config_write} $expdir/${config_write}
   cnmodel=$expdir/cntk_model/cntk.dnn.${epoch}
   action=write
-  graphdir=exp/${prevexp}_${enhan}/graph_${LM}
-  cp $alidir_tr/final.mdl $expdir
 
+  #for set in {dt05_simu,et05_simu}; do
+  #for set in dt05_simu; do
   for set in {dt05_real,dt05_simu,et05_real,et05_simu}; do
-    dataset=data-fbank/${set}_${enhan}
-    cntk_string="cntk configFile=${expdir}/${config_write} DeviceNumber=-1 modelName=$cnmodel labelDim=$labelDim featDim=$featDim stftDim=$stftDim hstftDim=$hstftDim action=$action ExpDir=$expdir"
-    njenh=`cat $dataset/spk2utt|wc -l`
+    datafeat=$noisyfeatdir/${set}_${noisyinput}
+    datastft=$noisystftdir/${set}_${noisyinput}
+    cntk_string="cntk configFile=${expdir}/${config_write} DeviceNumber=-1 modelName=$cnmodel featDim=$featDim stftDim=$stftDim hstftDim=$hstftDim action=$action ExpDir=$expdir"
     # run in the background and use wait
-    local/enhance_cntk.sh  --nj $njenh --cmd "$decode_cmd" --num-threads ${num_threads} --parallel-opts '-pe smp 4' $dataset $expdir/enhance_${set}_${output}_${epoch} "$cntk_string" &
+    local/enhance_cntk.sh --stftconf $stft_config  --nj $nj --cmd "$decode_cmd" --num-threads ${num_threads} --parallel-opts '-pe smp 4' $wavdir $datafeat $datastft $expdir/enhance_${set}_${epoch} "$cntk_string" &
   done
   wait;
 
 fi
-
 
 sleep 3
 exit 0
