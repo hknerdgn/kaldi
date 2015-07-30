@@ -1,10 +1,9 @@
 #!/bin/bash
 
-# This is the 2nd version of CNTK recipe for AMI corpus.
-# In this recipe, CNTK directly read Kaldi features and labels,
-# which makes the whole pipline much simpler. Here, we only
-# train the standard hybrid DNN model. To train LSTM and PAC-RNN
-# models, you have to change the ndl file. -Liang (1/5/2015)
+# This is the CNTK recipe chime3 speech enhancement
+# In this recipe, CNTK directly reads Kaldi features and stfts
+
+# Hakan Erdogan and Shinji Watanabe
 
 . ./cmd.sh
 . ./path.sh
@@ -295,8 +294,6 @@ if [ $stage -le 2 ] ; then
   cnmodel=$expdir/cntk_model/cntk.dnn.${epoch}
   action=write
 
-  #for set in {dt05_simu,et05_simu}; do
-  #for set in dt05_simu; do
   for set in {dt05_real,dt05_simu,et05_real,et05_simu}; do
     datafeat=$noisyfeatdir/${set}_${noisyinput}
     datastft=$noisystftdir/${set}_${noisyinput}

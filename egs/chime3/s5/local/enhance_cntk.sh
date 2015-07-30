@@ -19,7 +19,6 @@ use_gpu_id=-1 # disable gpu
 parallel_opts= # use 2 CPUs (1 DNN-forward, 1 decoder)
 num_threads=
 stftconf=
-wavdir=/local_data2/watanabe/work/201410CHiME3/CHiME3/data/audio/16kHz
 # End configuration section.
 
 echo "$0 $@"  # Print the command line for logging
@@ -27,6 +26,7 @@ echo "$0 $@"  # Print the command line for logging
 [ -f ./path.sh ] && . ./path.sh; # source the path.
 . parse_options.sh || exit 1;
 
+#wavdir=/local_data2/watanabe/work/201410CHiME3/CHiME3/data/audio/16kHz
 wavdir=$1 # main path where the original noisy files are, this will be replaced in the input wav.scp lists with the $dir below
 featdir=$2 # where the noisy features are
 stftdir=$3 # where the noisy stfts are
