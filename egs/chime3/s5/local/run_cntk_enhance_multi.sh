@@ -24,6 +24,8 @@ clean_channels="1_3_4_5_6"
 noisy_type=ch
 clean_type=reverb_ch
 
+chime3_dir="/local_data2/watanabe/work/201410CHiME3/CHiME3"
+
 # CNTK config variables
 start_from_scratch=false # delete experiment directory before starting the experiment
 model=dnn_6layer_enh # {dnn_3layer,dnn_6layer,lstmp-3layer}
@@ -91,8 +93,9 @@ EOF
 
 # common data preparation
 if [ $stage -le 0 ]; then
-  local/clean_wsj0_data_prep.sh /local_data2/watanabe/work/201410CHiME3/CHiME3/data/WSJ0
-  local/simu_noisy_chime3_data_prep.sh /local_data2/watanabe/work/201410CHiME3/CHiME3
+  local/clean_wsj0_data_prep.sh $chime3_dir/data/WSJ0
+  local/simu_noisy_chime3_data_prep.sh $chime3_dir
+  local/real_noisy_chime3_data_prep.sh $chime3_dir
 fi
 
 # noisy speech fbank feature extraction
@@ -101,7 +104,7 @@ if [ $stage -le 1 ]; then
     noisyinput=${noisy_type}${ch}
 
     # fbank feature extraction
-    noisyfeatdir=data-fbank-${fbanksize}/$noisyinput
+    noisyfeatdir=data-fbank-${fbanksize}
     fbankdir=fbank-${fbanksize}/$noisyinput
     mkdir -p $noisyfeatdir
     #for dataset in dt05_real et05_real tr05_real dt05_simu et05_simu tr05_simu; do
@@ -120,8 +123,10 @@ fi
 # noisy speech stft feature extraction
 if [ $stage -le 2 ]; then
   for ch in `echo $noisy_channels | tr "_" " "`; do
+    noisyinput=${noisy_type}${ch}
+
     # stft feature extraction
-    noisystftdir=data-stft/$noisyinput
+    noisystftdir=data-stft
     stftndir=stft/$noisyinput
     #for dataset in dt05_real et05_real tr05_real dt05_simu et05_simu tr05_simu; do
     for dataset in dt05_simu et05_simu tr05_simu; do
@@ -142,7 +147,7 @@ if [ $stage -le 3 ]; then
     cleaninput=${clean_type}${ch}
 
     # stft feature extraction
-    cleanstftdir=data-stft/$cleaninput
+    cleanstftdir=data-stft
     stftcdir=stft/$cleaninput
     #for dataset in dt05_real et05_real tr05_real dt05_simu et05_simu tr05_simu; do
     for dataset in dt05_simu et05_simu tr05_simu; do
@@ -157,11 +162,12 @@ if [ $stage -le 3 ]; then
   done
 fi
 
+mkdir -p $expdir
 ###### set input and output features for CNTK
 if [ $stage -le 4 ]; then
   for ch in `echo $noisy_channels | tr "_" " "`; do
     noisyinput=${noisy_type}${ch}
-    noisyfeatdir=data-fbank/$noisyinput
+    noisyfeatdir=data-fbank-${fbanksize}
     feats_tr="scp:${noisyfeatdir}/tr05_simu_${noisyinput}/feats.scp"
     feats_dt="scp:${noisyfeatdir}/dt05_simu_${noisyinput}/feats.scp"
 
@@ -179,7 +185,7 @@ if [ $stage -le 4 ]; then
 
   for ch in `echo $noisy_channels | tr "_" " "`; do
     noisyinput=${noisy_type}${ch}
-    noisystftdir=data-stft/$noisyinput
+    noisystftdir=data-stft
     stftn_tr="scp:${noisystftdir}/tr05_simu_${noisyinput}/feats.scp"
     stftn_dt="scp:${noisystftdir}/dt05_simu_${noisyinput}/feats.scp"
 
@@ -195,7 +201,7 @@ if [ $stage -le 4 ]; then
 
   for ch in `echo $clean_channels | tr "_" " "`; do
     cleaninput=${clean_type}${ch}
-    cleanstftdir=data-stft/$cleaninput
+    cleanstftdir=data-stft
     stftc_tr="scp:${cleanstftdir}/tr05_simu_${cleaninput}/feats.scp"
     stftc_dt="scp:${cleanstftdir}/dt05_simu_${cleaninput}/feats.scp"
 
@@ -217,12 +223,12 @@ done
 echo "$expdir/cntk_train.stack.feats exp/append_$noisy_channels fbank-${fbanksize}/$noisy_channels"
 
 cp $expdir/cntk_train.stack.feats $expdir/cntk_train.feats
-cp $expdir/cntk_train.ch5.stftn $expdir/cntk_train.stftn
-cp $expdir/cntk_train.ch5.stftc $expdir/cntk_train.stftc
+cp $expdir/cntk_train.5.stftn $expdir/cntk_train.stftn
+cp $expdir/cntk_train.5.stftc $expdir/cntk_train.stftc
 
 cp $expdir/cntk_valid.stack.feats $expdir/cntk_valid.feats
-cp $expdir/cntk_valid.ch5.stftn $expdir/cntk_valid.stftn
-cp $expdir/cntk_valid.ch5.stftc $expdir/cntk_valid.stftc
+cp $expdir/cntk_valid.5.stftn $expdir/cntk_valid.stftn
+cp $expdir/cntk_valid.5.stftc $expdir/cntk_valid.stftc
 
 frame_context=7  # one sided context size (for DNN)
 baseFeatDim=`feat-to-dim $expdir/cntk_train.feats -`
@@ -234,8 +240,6 @@ hstftDim=`echo $stftDim/2|bc`
 #additional arguments for LSTM training, these are required to shift the features
 frame_shift=5 # number of frames to shift the features
 RowSliceStart=`echo "($frame_context + $frame_shift ) *  $baseFeatDim"|bc`
-
-mkdir -p $expdir
 
 # stage 1 (TRAIN)
 if [ $stage -le 6 ] ; then
