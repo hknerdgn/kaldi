@@ -5,6 +5,8 @@ echo rather manually run certain sections
 
 exit;
 
+wavdir=/export/ws15-ffs-data/corpora/chime3/CHiME3/data/audio/16kHz
+
 # train and apply using cntk dnn model
 local/run_cntk_enhance.sh \
  --noisyinput ch5 \
@@ -23,6 +25,15 @@ local/run_cntk_enhance.sh \
  --lrps 0.001 \
  --trsubsetsize 1000 \
  --dtsubsetsize 500
+exit;
+
+local/run_cntk_enhance.sh \
+ --noisyinput ch5 \
+ --cleaninput reverb_ch5 \
+ --model lstmp_3layer_enh \
+ --cntk_config CNTK2_lstm_enh.config \
+ --action TrainLSTM \ 
+ --lrps 0.001
 exit;
 
 #apply the trained cntk model only to write down enhanced files

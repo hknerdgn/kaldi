@@ -34,6 +34,7 @@ cellDim=1024
 bottleneckDim=256
 initModel=${model}.ndl
 addLayerMel=${model}.mel
+wavdir="/local_data2/watanabe/work/201410CHiME3/CHiME3/data/audio/16kHz"
 
 . parse_options.sh || exit 1;
 
@@ -48,7 +49,6 @@ expdir=exp/cntk_${output}
 fbankdir=fbank-${fbanksize}/$noisyinput
 stftndir=stft/$noisyinput
 stftcdir=stft/$cleaninput
-wavdir="/local_data2/watanabe/work/201410CHiME3/CHiME3/data/audio/16kHz"
 fbank_config=conf/fbank_${fbanksize}.conf
 stft_config=conf/stft.conf
 
