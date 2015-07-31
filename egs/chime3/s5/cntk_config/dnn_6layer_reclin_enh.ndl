@@ -7,38 +7,44 @@ ndlMacroDefine=[
 
 ndlCreateNetwork=[
 
-	#define basic i/o
-	featDim=$featDim$
-	stftDim=$stftDim$
-	hiddenDim=$hiddenDim$
-	hstftDim=$hstftDim$
-	features=InputValue(featDim, tag=feature)
-        scalespec=constant(0.00001)
-        iscalespec=constant(100000)
-	stftn=InputValue(stftDim, tag=feature)
-	stftc=InputValue(stftDim, tag=feature)
-
-	stftnMag = Scale(scalespec,RowSlice(0, hstftDim, stftn));
-	stftnPhase = RowSlice(hstftDim, hstftDim, stftn);
-
-	stftcMag = Scale(scalespec,RowSlice(0, hstftDim, stftc));
-	stftcPhase = RowSlice(hstftDim, hstftDim, stftc);
+     #define basic i/o
+     featDim=$featDim$
+     stftDim=$stftDim$
+     hiddenDim=$hiddenDim$
+     hstftDim=$hstftDim$
+     features=InputValue(featDim, tag=feature)
+     scalespec=constant(0.00001)
+     One=constant(1,rows=1,cols=1)
+     iscalespec=constant(100000)
+     stftn=InputValue(stftDim, tag=feature)
+     stftc=InputValue(stftDim, tag=feature)
+     
+     stftnMag = Scale(scalespec,RowSlice(0, hstftDim, stftn));
+     stftnPhase = RowSlice(hstftDim, hstftDim, stftn);
+     
+     stftcMag = Scale(scalespec,RowSlice(0, hstftDim, stftc));
+     stftcPhase = RowSlice(hstftDim, hstftDim, stftc);
 			       			       
-	 # define network
-	 featNorm = MeanVarNorm(features)
-	 L1 = RBFF(featNorm,hiddenDim,featDim)
-	 L2 = RBFF(L1,hiddenDim,hiddenDim)
-	 L3 = RBFF(L2,hiddenDim,hiddenDim)
-	 L4 = RBFF(L3,hiddenDim,hiddenDim)
-         L5 = RBFF(L4,hiddenDim,hiddenDim)
-         Mask = SBFF(L5,hstftDim,hiddenDim)
-	 MaskedNoisy = ElementTimes(Mask, stftnMag)
-	 SmaskedNoisy = Scale(iscalespec, MaskedNoisy)
-	 MaskedNoisywithPhase = RowStack(SmaskedNoisy, stftnPhase, tag=output)
-
-	 MSE = SquareError(MaskedNoisy, stftcMag, tag=criteria)
-	 MaskSum = SumElements(Mask, tag=eval)
-	 NoisyMSE = SquareError(stftnMag, stftcMag, tag=eval)
-	 CleanSum = SumElements(stftcMag, tag=eval)
-	 NoisySum = SumElements(stftnMag, tag=eval)
+     # define network
+     featNorm = MeanVarNorm(features)
+     L1 = RBFF(featNorm,hiddenDim,featDim)
+     L2 = RBFF(L1,hiddenDim,hiddenDim)
+     L3 = RBFF(L2,hiddenDim,hiddenDim)
+     L4 = RBFF(L3,hiddenDim,hiddenDim)
+     L5 = RBFF(L4,hiddenDim,hiddenDim)
+     Mask = SBFF(L5,hstftDim,hiddenDim)
+     MaskedNoisy = ElementTimes(Mask, stftnMag)
+     SmaskedNoisy = Scale(iscalespec, MaskedNoisy)
+     MaskedNoisywithPhase = RowStack(SmaskedNoisy, stftnPhase, tag=output)
+     
+     IdealMagMask = ElementDivide(stftcMag,stftnMag)
+     IdealMagMaskLim = MinSc(One,IdealMagMask)
+     IdealMagMaskLimNoisy = ElementTimes(IdealMagMaskLim, stftnMag)
+     
+     MSE = SquareError(MaskedNoisy, stftcMag, tag=criteria)
+     MaskSum = SumElements(Mask, tag=eval)
+     NoisyMSE = SquareError(stftnMag, stftcMag, tag=eval)
+     BestMSE = SquareError(IdealMagMaskLimNoisy, stftcMag, tag=eval)
+     CleanSum = SumElements(stftcMag, tag=eval)
+     NoisySum = SumElements(stftnMag, tag=eval)
 ]

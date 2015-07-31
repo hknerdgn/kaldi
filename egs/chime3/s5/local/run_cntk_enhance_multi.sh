@@ -11,6 +11,7 @@
 
 num_threads=1
 device=0
+train_epochs=50
 epoch=30
 stage=0
 fbanksize=100
@@ -35,6 +36,7 @@ config_write=CNTK2_write_enh.config
 nj=20
 
 hiddenDim=512
+cellDim=1024
 bottleneckDim=256
 initModel=${model}.ndl
 addLayerMel=${model}.mel
@@ -50,7 +52,7 @@ set -u
 set -o pipefail
 set -x
 
-output=enh_${noisy_type}_${noisy_channels}_${model}
+output=enh_${noisy_type}_${model}
 expdir=exp/cntk_${output}
 
 if [ "$start_from_scratch" = true ]; then
@@ -94,6 +96,7 @@ EOF
 # common data preparation
 if [ $stage -le 0 ]; then
   local/clean_wsj0_data_prep.sh $chime3_dir/data/WSJ0
+  local/wsj_prepare_dict.sh 
   local/simu_noisy_chime3_data_prep.sh $chime3_dir
   local/real_noisy_chime3_data_prep.sh $chime3_dir
 fi
@@ -162,6 +165,8 @@ if [ $stage -le 3 ]; then
   done
 fi
 
+
+
 mkdir -p $expdir
 ###### set input and output features for CNTK
 if [ $stage -le 4 ]; then
@@ -170,12 +175,6 @@ if [ $stage -le 4 ]; then
     noisyfeatdir=data-fbank-${fbanksize}
     feats_tr="scp:${noisyfeatdir}/tr05_simu_${noisyinput}/feats.scp"
     feats_dt="scp:${noisyfeatdir}/dt05_simu_${noisyinput}/feats.scp"
-
-    # subset
-    head -n $trsubsetsize ${noisyfeatdir}/tr05_simu_${noisyinput}/feats.scp > ${noisyfeatdir}/tr05_simu_${noisyinput}/feats_$trsubsetsize.scp
-    head -n $dtsubsetsize ${noisyfeatdir}/dt05_simu_${noisyinput}/feats.scp > ${noisyfeatdir}/dt05_simu_${noisyinput}/feats_$dtsubsetsize.scp
-    feats_tr="scp:${noisyfeatdir}/tr05_simu_${noisyinput}/feats_$trsubsetsize.scp"
-    feats_dt="scp:${noisyfeatdir}/dt05_simu_${noisyinput}/feats_$dtsubsetsize.scp"
 
     (feat-to-len "$feats_tr" ark,t:- > $expdir/cntk_train.$ch.counts) || exit 1;
     echo "$feats_tr" > $expdir/cntk_train.$ch.feats
@@ -189,12 +188,6 @@ if [ $stage -le 4 ]; then
     stftn_tr="scp:${noisystftdir}/tr05_simu_${noisyinput}/feats.scp"
     stftn_dt="scp:${noisystftdir}/dt05_simu_${noisyinput}/feats.scp"
 
-    # subset
-    head -n $trsubsetsize ${noisystftdir}/tr05_simu_${noisyinput}/feats.scp > ${noisystftdir}/tr05_simu_${noisyinput}/feats_$trsubsetsize.scp
-    head -n $dtsubsetsize ${noisystftdir}/dt05_simu_${noisyinput}/feats.scp > ${noisystftdir}/dt05_simu_${noisyinput}/feats_$dtsubsetsize.scp
-    stftn_tr="scp:${noisystftdir}/tr05_simu_${noisyinput}/feats_$trsubsetsize.scp"
-    stftn_dt="scp:${noisystftdir}/dt05_simu_${noisyinput}/feats_$dtsubsetsize.scp"
-
     echo "$stftn_tr" > $expdir/cntk_train.$ch.stftn
     echo "$stftn_dt" > $expdir/cntk_valid.$ch.stftn
   done
@@ -205,36 +198,48 @@ if [ $stage -le 4 ]; then
     stftc_tr="scp:${cleanstftdir}/tr05_simu_${cleaninput}/feats.scp"
     stftc_dt="scp:${cleanstftdir}/dt05_simu_${cleaninput}/feats.scp"
 
-    # subset
-    head -n $trsubsetsize ${cleanstftdir}/tr05_simu_${cleaninput}/feats.scp > ${cleanstftdir}/tr05_simu_${cleaninput}/feats_$trsubsetsize.scp
-    head -n $dtsubsetsize ${cleanstftdir}/dt05_simu_${cleaninput}/feats.scp > ${cleanstftdir}/dt05_simu_${cleaninput}/feats_$dtsubsetsize.scp
-    stftc_tr="scp:${cleanstftdir}/tr05_simu_${cleaninput}/feats_$trsubsetsize.scp"
-    stftc_dt="scp:${cleanstftdir}/dt05_simu_${cleaninput}/feats_$dtsubsetsize.scp"
-
     echo "$stftc_tr" > $expdir/cntk_train.$ch.stftc
     echo "$stftc_dt" > $expdir/cntk_valid.$ch.stftc
   done
 fi
 
-echo -n "./steps/append_feats.sh " >  $expdir/stack_feat.sh
-for ch in `echo $noisy_channels | tr "_" " "`; do
-  echo -n "$expdir/cntk_train.$ch.feats " >> $expdir/stack_feat.sh
-done
-echo "$expdir/cntk_train.stack.feats exp/append_$noisy_channels fbank-${fbanksize}/$noisy_channels"
+if [ $stage -le 5 ]; then
+  for dataset in dt05_simu et05_simu tr05_simu; do
+    echo -n "./steps/append_feats.sh " >  $expdir/stack_feat_${dataset}.sh
+    for ch in `echo $noisy_channels | tr "_" " "`; do
+      noisyinput=${noisy_type}${ch}
+      noisyfeatdir=data-fbank-${fbanksize}
+      #for dataset in dt05_real et05_real tr05_real dt05_simu et05_simu tr05_simu; do
+      x=${dataset}_${noisyinput}
+      echo -n "${noisyfeatdir}/$x " >> $expdir/stack_feat_${dataset}.sh
+    done
+    echo -n "${noisyfeatdir}/${dataset}_${noisy_type} $expdir/append_${dataset}_${noisy_type} " >> $expdir/stack_feat_${dataset}.sh
+    echo -n "fbank-${fbanksize}" >> $expdir/stack_feat_${dataset}.sh
+    $expdir/stack_feat_${dataset}.sh
+  done
+  feats_tr="scp:${noisyfeatdir}/tr05_simu_${noisy_type}/feats.scp"
+  feats_dt="scp:${noisyfeatdir}/dt05_simu_${noisy_type}/feats.scp"
+
+  echo "$feats_tr" > $expdir/cntk_train.stack.feats
+  echo "$feats_dt" > $expdir/cntk_valid.stack.feats
+fi
 
 cp $expdir/cntk_train.stack.feats $expdir/cntk_train.feats
 cp $expdir/cntk_train.5.stftn $expdir/cntk_train.stftn
 cp $expdir/cntk_train.5.stftc $expdir/cntk_train.stftc
+cp $expdir/cntk_train.5.counts $expdir/cntk_train.counts
 
 cp $expdir/cntk_valid.stack.feats $expdir/cntk_valid.feats
 cp $expdir/cntk_valid.5.stftn $expdir/cntk_valid.stftn
 cp $expdir/cntk_valid.5.stftc $expdir/cntk_valid.stftc
+cp $expdir/cntk_valid.5.counts $expdir/cntk_valid.counts
 
 frame_context=7  # one sided context size (for DNN)
-baseFeatDim=`feat-to-dim $expdir/cntk_train.feats -`
+feats_tr=`cat $expdir/cntk_train.feats`
+baseFeatDim=`feat-to-dim $feats_tr -`
 featDim=`echo "$baseFeatDim * (2 * $frame_context + 1)"|bc`
-nfeats=`echo $noisy_channels | tr "_" "\n" | wc -l`
-stftDim=`feat-to-dim $expdir/cntk_train.stftn -`
+stftn_tr=`cat $expdir/cntk_train.stftn`
+stftDim=`feat-to-dim $stftn_tr -`
 hstftDim=`echo $stftDim/2|bc`
 
 #additional arguments for LSTM training, these are required to shift the features
@@ -248,7 +253,7 @@ if [ $stage -le 6 ] ; then
 cp cntk_config/${cntk_config} $expdir/${cntk_config}
 cp cntk_config/default_macros.ndl $expdir/default_macros.ndl
 cp cntk_config/${model}.ndl $expdir/${model}.ndl
-cp cntk_config/${addLayerMel} $expdir/${addLayerMel}
+#cp cntk_config/${addLayerMel} $expdir/${addLayerMel}
 cp cntk_config/${initModel} $expdir/${initModel}
 ndlfile=$expdir/${model}.ndl
 
@@ -257,27 +262,33 @@ ExpDir=$expdir
 modelName=$expdir/cntk_model/cntk.dnn
 
 hiddenDim=${hiddenDim}
+cellDim=${cellDim}
 bottleneckDim=${bottleneckDim}
 
 initModel=${expdir}/${initModel}
 addLayerMel=${expdir}/${addLayerMel}
 
+baseFeatDim=$baseFeatDim
+RowSliceStart=$RowSliceStart 
 featDim=${featDim}
 stftDim=${stftDim}
 hstftDim=${hstftDim}
 featureTransform=NO_FEATURE_TRANSFORM
 lrps=${lrps}
+trainEpochs=${train_epochs}
+
+action=${action}
+ndlfile=$ndlfile
+numThreads=$num_threads
 
 inputCounts=${expdir}/cntk_train.counts
 inputFeats=${expdir}/cntk_train.feats
 inputStftn=${expdir}/cntk_train.stftn
+inputStftc=${expdir}/cntk_train.stftc
 
 cvInputCounts=${expdir}/cntk_valid.counts
 cvInputFeats=${expdir}/cntk_valid.feats
 cvInputStftn=${expdir}/cntk_valid.stftn
-
-inputStftc=${expdir}/cntk_train.stftc
-
 cvInputStftc=${expdir}/cntk_valid.stftc
 EOF
 

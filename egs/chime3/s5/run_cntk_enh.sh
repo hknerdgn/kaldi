@@ -11,6 +11,14 @@ wavdir=/export/ws15-ffs-data/corpora/chime3/CHiME3/data/audio/16kHz
 local/run_cntk_enhance.sh \
  --noisyinput ch5 \
  --cleaninput reverb_ch5 \
+ --model dnn_6layer_reclin_enh \
+ --cntk_config CNTK2_enh.config \
+ --action TrainDNN
+exit;
+
+local/run_cntk_enhance.sh \
+ --noisyinput ch5 \
+ --cleaninput reverb_ch5 \
  --model dnn_6layer_enh \
  --cntk_config CNTK2_enh.config \
  --action TrainDNN
