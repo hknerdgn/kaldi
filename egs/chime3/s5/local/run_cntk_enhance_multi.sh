@@ -34,12 +34,17 @@ action=TrainDNN # {TrainDNN, TrainLSTM}
 cntk_config=CNTK2_enh.config
 config_write=CNTK2_write_enh.config
 nj=20
+njenh=4
 
 hiddenDim=512
 cellDim=1024
 bottleneckDim=256
 initModel=${model}.ndl
 addLayerMel=${model}.mel
+
+noisyfeatdir=data-fbank-${fbanksize}
+noisystftdir=data-stft
+cleanstftdir=data-stft
 
 wavdir="/local_data2/watanabe/work/201410CHiME3/CHiME3/data/audio/16kHz"
 
@@ -107,7 +112,6 @@ if [ $stage -le 1 ]; then
     noisyinput=${noisy_type}${ch}
 
     # fbank feature extraction
-    noisyfeatdir=data-fbank-${fbanksize}
     fbankdir=fbank-${fbanksize}/$noisyinput
     mkdir -p $noisyfeatdir
     #for dataset in dt05_real et05_real tr05_real dt05_simu et05_simu tr05_simu; do
@@ -129,7 +133,6 @@ if [ $stage -le 2 ]; then
     noisyinput=${noisy_type}${ch}
 
     # stft feature extraction
-    noisystftdir=data-stft
     stftndir=stft/$noisyinput
     #for dataset in dt05_real et05_real tr05_real dt05_simu et05_simu tr05_simu; do
     for dataset in dt05_simu et05_simu tr05_simu; do
@@ -150,7 +153,6 @@ if [ $stage -le 3 ]; then
     cleaninput=${clean_type}${ch}
 
     # stft feature extraction
-    cleanstftdir=data-stft
     stftcdir=stft/$cleaninput
     #for dataset in dt05_real et05_real tr05_real dt05_simu et05_simu tr05_simu; do
     for dataset in dt05_simu et05_simu tr05_simu; do
@@ -172,7 +174,6 @@ mkdir -p $expdir
 if [ $stage -le 4 ]; then
   for ch in `echo $noisy_channels | tr "_" " "`; do
     noisyinput=${noisy_type}${ch}
-    noisyfeatdir=data-fbank-${fbanksize}
     feats_tr="scp:${noisyfeatdir}/tr05_simu_${noisyinput}/feats.scp"
     feats_dt="scp:${noisyfeatdir}/dt05_simu_${noisyinput}/feats.scp"
 
@@ -184,7 +185,6 @@ if [ $stage -le 4 ]; then
 
   for ch in `echo $noisy_channels | tr "_" " "`; do
     noisyinput=${noisy_type}${ch}
-    noisystftdir=data-stft
     stftn_tr="scp:${noisystftdir}/tr05_simu_${noisyinput}/feats.scp"
     stftn_dt="scp:${noisystftdir}/dt05_simu_${noisyinput}/feats.scp"
 
@@ -194,7 +194,6 @@ if [ $stage -le 4 ]; then
 
   for ch in `echo $clean_channels | tr "_" " "`; do
     cleaninput=${clean_type}${ch}
-    cleanstftdir=data-stft
     stftc_tr="scp:${cleanstftdir}/tr05_simu_${cleaninput}/feats.scp"
     stftc_dt="scp:${cleanstftdir}/dt05_simu_${cleaninput}/feats.scp"
 
@@ -208,7 +207,6 @@ if [ $stage -le 5 ]; then
     echo -n "./steps/append_feats.sh " >  $expdir/stack_feat_${dataset}.sh
     for ch in `echo $noisy_channels | tr "_" " "`; do
       noisyinput=${noisy_type}${ch}
-      noisyfeatdir=data-fbank-${fbanksize}
       #for dataset in dt05_real et05_real tr05_real dt05_simu et05_simu tr05_simu; do
       x=${dataset}_${noisyinput}
       echo -n "${noisyfeatdir}/$x " >> $expdir/stack_feat_${dataset}.sh
@@ -307,30 +305,33 @@ $cntk_train_cmd $parallel_opts JOB=1:1 $expdir/log/cntk.JOB.log \
 
 echo "$0 successfuly finished.. $dir"
 
-exit
-
 fi
 
 # stage 2 (enhance dev and test sets)
-if [ $stage -le 2 ] ; then
+if [ $stage -le 7 ] ; then
 
   cp cntk_config/${config_write} $expdir/${config_write}
   cnmodel=$expdir/cntk_model/cntk.dnn.${epoch}
   action=write
-  graphdir=exp/${prevexp}_${enhan}/graph_${LM}
-  cp $alidir_tr/final.mdl $expdir
 
-  for set in {dt05_real,dt05_simu,et05_real,et05_simu}; do
-    dataset=data-fbank/${set}_${enhan}
-    cntk_string="cntk configFile=${expdir}/${config_write} DeviceNumber=-1 modelName=$cnmodel labelDim=$labelDim featDim=$featDim stftDim=$stftDim hstftDim=$hstftDim action=$action ExpDir=$expdir"
-    njenh=`cat $dataset/spk2utt|wc -l`
-    # run in the background and use wait
-    local/enhance_cntk.sh  --nj $njenh --cmd "$decode_cmd" --num-threads ${num_threads} --parallel-opts '-pe smp 4' $dataset $expdir/enhance_${set}_${output}_${epoch} "$cntk_string" &
-  done
-  wait;
+  if [ -e $cnmodel ]; then
+   echo "Enhancing with trained model from epoch ${epoch}"
+ 
+   #for set in {dt05_simu,et05_simu}; do
+   for dataset in {dt05_real,dt05_simu,et05_real,et05_simu}; do
+     datafeat=$noisyfeatdir/${dataset}_${noisy_type}
+     datastft=$noisystftdir/${dataset}_${noisy_type}
+     enh_wav_dir=$expdir/enhance_${noisy_type}_${epoch}
+     cntk_string="cntk configFile=${expdir}/${config_write} DeviceNumber=-1 modelName=$cnmodel featDim=$featDim stftDim=$stftDim hstftDim=$hstftDim action=$action ExpDir=$expdir"
+     # run in the background and use wait
+     local/enhance_cntk.sh --stftconf $stft_config  --nj $njenh --cmd "$decode_cmd" --num-threads ${num_threads} --parallel-opts '-pe smp 4' $wavdir $datafeat $datastft $enh_wav_dir "$cntk_string" &
+   done
+   wait;
+  else
+     echo "$cnmodel not found. Try to specify another epoch number with --epoch"
+  fi
 
 fi
-
 
 sleep 3
 exit 0
