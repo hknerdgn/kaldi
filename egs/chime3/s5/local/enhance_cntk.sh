@@ -1,8 +1,6 @@
 #!/bin/bash
 
-# Copyright 2012-2013 Karel Vesely, Daniel Povey
-# 	    2015 Yu Zhang
-# 	    2015 Hakan Erdogan
+# Copyright 2015 Hakan Erdogan
 # Apache 2.0
 
 # Begin configuration section.  
@@ -57,8 +55,9 @@ inputfeats="$sfdata/JOB/cntkInputFeat.scp"
 inputstfts="$ssdata/JOB/cntkInputStft.scp"
 # to be made
 outwav_scp="scp:$ssdata/JOB/${enhmethod}_wav.scp"
+inwavdur="ark:$ssdata/JOB/wav_durations.ark"
 
-if [ ! -e $sfdata/$nj/cntkInputFeat.scp ] || [ ! -e $ssdata/$nj/${enhmethod}_wav.scp ] || [ ! -e $ssdata/$nj/${enhmethod}_dirs.txt ]; then
+if [ ! -e $sfdata/$nj/cntkInputFeat.scp ] || [ ! -e $ssdata/$nj/${enhmethod}_wav.scp ] || [ ! -e $ssdata/$nj/${enhmethod}_dirs.txt ] || [ ! -e $ssdata/$nj/wav_durations.ark ]; then
 $cmd JOB=1:$nj $dir/log/split_input.JOB.log \
    feat-to-len "$feats" ark,t:"$inputCounts" || exit 1;
 
@@ -76,14 +75,17 @@ $cmd JOB=1:$nj $dir/log/make_outwavdirlist.JOB.log \
 
 $cmd JOB=1:$nj $dir/log/make_outwavdirs.JOB.log \
    local/mk_mult_dirs.sh $ssdata/JOB/${enhmethod}_dirs.txt
+
+$cmd JOB=1:$nj $dir/log/make_inwavdur.JOB.log \
+   wav-to-duration $inwav_scp $inwavdur
 fi
 
 
 # Run the enhancement in the queue
 if [ $stage -le 0 ]; then
-  $cmd $parallel_opts JOB=1:$nj $dir/log/decode.JOB.log \
+  $cmd $parallel_opts JOB=1:$nj $dir/log/enhance.JOB.log \
     $cnstring inputCounts=$inputCounts inputFeats=$inputfeats inputStftn=$inputstfts numCPUthreads=${num_threads} \| \
-    compute-inverse-stft --config=$stftconf ark:- $outwav_scp || exit 1;
+    compute-inverse-stft --wav-durations=$inwavdur --config=$stftconf ark:- $outwav_scp || exit 1;
     #compute-inverse-stft --wav-durations=ark:\"wav-to-duration $inwav_scp ark:- \|\" --config=$stftconf ark:- $outwav_scp || exit 1;
 fi
 
