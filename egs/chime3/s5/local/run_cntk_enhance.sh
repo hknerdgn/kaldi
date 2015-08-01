@@ -17,7 +17,9 @@ noisytestinput=same # do not change this default, give a different one in comman
 cleaninput=reverb_ch5
 stage=0
 fbanksize=100
-stftsize=default
+frameshift_ms=10
+framelength_ms=25
+fs=16000
 lrps=0.001 #learning rate per sample for cntk
 trsubsetsize=all # num utterances (head -n) considered for training
 dtsubsetsize=all # num utterances (head -n) considered for validation
@@ -32,13 +34,20 @@ action=TrainDNN # {TrainDNN, TrainLSTM}
 cntk_config=CNTK2_enh.config
 config_write=CNTK2_write_enh.config
 nj=20
+njfeat=20
 njenh=4
 
+# you can give a modelvariety to train a different version of a model
+# for example by changing framelength or hiddenDim variables etc.
+modelvariety=
+# cntk model parameters passed to cntk by writing into Base.config
 hiddenDim=512
 cellDim=1024
 bottleneckDim=256
 initModel=${model}.ndl
 addLayerMel=${model}.mel
+
+# wave files obtained from here
 chime3dir=/local_data2/watanabe/work/201410CHiME3/CHiME3
 
 echo "$0 $@"  # Print the command line for logging
@@ -51,31 +60,33 @@ if [ x$noisytestinput == "xsame" ]; then
   noisytestinput=$noisyinput
 fi
 
-output=enh_${noisyinput}_${model} # for trained model
+output=enh_${noisyinput}_${model}${modelvariety} # for trained model
 
 expdir=exp/cntk_${output}
 
-fbanklnkdir=featlnk/fbank-${fbanksize}
-stftlnkdir=featlnk/stft-${stftsize}
-fbankrawdir=featraw/fbank-${fbanksize}
-stftrawdir=featraw/stft-${stftsize}
+fbankvariety=${fbanksize}_${framelength_ms}_${frameshift_ms}_${fs}
+stftvariety=${framelength_ms}_${frameshift_ms}_${fs}
+fbanklnkdir=data/fbank_${fbankvariety}
+stftlnkdir=data/stft_${stftvariety}
+fbankrawdir=dataraw/fbank_${fbankvariety}
+stftrawdir=dataraw/stft_${stftvariety}
 
-fbank_config=conf/fbank_${fbanksize}.conf
-stft_config=conf/stft.conf
+fbank_config=conf/fbank_${fbankvariety}.conf
+stft_config=conf/stft_${stftvariety}.conf
 
 # a bash function for making features
-make_feat {
-  dataset=$1 # dt05_real, tr05_real etc.
+function make_feat {
+  dset=$1 # dt05_real, tr05_real etc.
   input=$2 # channel or enhan or any variety of wav files
   ftype=$3 # fbank or stft
-  fsize=$4 # fbanksize or stftsize (second one unused)
+  fvariety=$4 # feature variety
   fconf=$5 # feature config file
   realsimu=$6 # real or simu
   rewrite=$7 # true or false
-  featlnkdir=featlnk/${ftype}-${fsize}
-  featrawdir=featraw/${ftype}-${fsize}
-  x=${dataset}_${input}
-  if [ ! -d $featlnkdir ] || [ $rewrite == "true" ]; then
+  featlnkdir=data/${ftype}_${fvariety}
+  featrawdir=dataraw/${ftype}_${fvariety}
+  x=${dset}_${input}
+  if [ ! -d $featlnkdir/$x ] || [ ! -e $featrawdir/raw_${ftype}_${x}.1.ark ] || [ $rewrite == "true" ]; then
     mkdir -p $featlnkdir
     if [ ! -d data/$x ]; then
       if [ $realsimu == "real" ]; then
@@ -85,8 +96,6 @@ make_feat {
       fi
     fi
     utils/copy_data_dir.sh data/$x ${featlnkdir}/$x
-  fi
-  if [ ! -d $featrawdir ] || [ $rewrite == "true" ]; then
     mkdir -p $featrawdir
     if [ $ftype == "fbank" ]; then
       steps/make_fbank.sh --nj ${njfeat} --cmd "$train_cmd" --fbank-config ${fconf} \
@@ -102,12 +111,12 @@ make_feat {
 cat << EOF > ${fbank_config}
 --window-type=hamming # disable Dans window, use the standard
 --use-energy=false    # only fbank outputs
---sample-frequency=16000 # Cantonese is sampled at 8kHz
+--sample-frequency=${fs} # Cantonese is sampled at 8kHz
 --low-freq=64         # typical setup from Frantisek Grezl
 --high-freq=8000
 --dither=1
---frame-shift=10.0
---frame-length=25.0
+--frame-shift=${frameshift_ms}
+--frame-length=${framelength_ms}
 --snip-edges=false
 --num-mel-bins=${fbanksize}     # 8kHz so we use 15 bins
 --htk-compat=true     # try to make it compatible with HTK
@@ -115,9 +124,9 @@ EOF
 
 cat << EOF > ${stft_config}
 --window-type=hamming # disable Dans window, use the standard
---sample-frequency=16000 # Cantonese is sampled at 8kHz
---frame-shift=10.0
---frame-length=25.0
+--sample-frequency=${fs} # Cantonese is sampled at 8kHz
+--frame-shift=${frameshift_ms}
+--frame-length=${framelength_ms}
 --dither=0
 --preemphasis-coefficient=0
 --remove-dc-offset=false
@@ -146,23 +155,25 @@ fi
 
 # make fbank and stft features using the bash function defined above
 
-for dataset in tr05, dt05, et05; do
-  for env in real, simu; do
-    make_feat ${dataset}_${env} ${noisyinput} fbank ${fbanksize} ${fbank_config} ${env} ${rewrite}
-    make_feat ${dataset}_${env} ${noisyinput} stft  ${stftsize}  ${stft_config}  ${env} ${rewrite}
+for dataset in {tr05,dt05,et05}; do
+  for datatype in {real,simu}; do
+    make_feat ${dataset}_${datatype} ${noisyinput} fbank ${fbankvariety} ${fbank_config} ${datatype} ${rewrite}
+    make_feat ${dataset}_${datatype} ${noisyinput} stft  ${stftvariety}  ${stft_config}  ${datatype} ${rewrite}
   done
 done
 
 # multi = simu + real
-for dataset in tr05, dt05, et05; do
-  utils/combine_data.sh $fbanklnkdir/${dataset}_multi_$noisyinput $fbanklnkdir/${dataset}_simu_$noisyinput ${fbanklnkdir}/${dataset}_real_$noisyinput
+for dataset in {tr05,dt05,et05}; do
+  if [ ! -d $fbanklnkdir/${dataset}_multi_$noisyinput ]; then
+    utils/combine_data.sh $fbanklnkdir/${dataset}_multi_$noisyinput $fbanklnkdir/${dataset}_simu_$noisyinput ${fbanklnkdir}/${dataset}_real_$noisyinput
+  fi
 done
 
-# make stft features for clean data
+# make stft features for clean data , no real clean yet
 
-for dataset in tr05, dt05, et05; do
-  for env in real, simu; do
-    make_feat ${dataset}_${env} ${cleaninput} stft  ${stftsize}  ${stft_config}  ${env} ${rewrite}
+for dataset in {tr05,dt05,et05}; do
+  for env in simu; do
+    make_feat ${dataset}_${env} ${cleaninput} stft  ${stftvariety}  ${stft_config}  ${env} ${rewrite}
   done
 done
 
@@ -306,10 +317,10 @@ fi
 if [ $stage -le 2 ]; then
 
   if [ $noisytestinput != $noisyinput ]; then
-    for dataset in dt05, et05; do
-      for env in real, simu; do
-        make_feat ${dataset}_${env} ${noisytestinput} fbank ${fbanksize} ${fbank_config} ${env} ${rewrite}
-        make_feat ${dataset}_${env} ${noisytestinput} stft  ${stftsize}  ${stft_config}  ${env} ${rewrite}
+    for dataset in {dt05,et05}; do
+      for env in {real,simu}; do
+        make_feat ${dataset}_${env} ${noisytestinput} fbank ${fbankvariety} ${fbank_config} ${env} ${rewrite}
+        make_feat ${dataset}_${env} ${noisytestinput} stft  ${stftvariety}  ${stft_config}  ${env} ${rewrite}
       done
     done
   fi
