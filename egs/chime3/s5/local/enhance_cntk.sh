@@ -57,7 +57,7 @@ inputstfts="$ssdata/JOB/cntkInputStft.scp"
 outwav_scp="scp:$ssdata/JOB/${enhmethod}_wav.scp"
 inwavdur="ark:$ssdata/JOB/wav_durations.ark"
 
-if [ ! -e $sfdata/$nj/cntkInputFeat.scp ] || [ ! -e $ssdata/$nj/${enhmethod}_wav.scp ] || [ ! -e $ssdata/$nj/${enhmethod}_dirs.txt ] || [ ! -e $ssdata/$nj/wav_durations.ark ]; then
+if [ ! -e $sfdata/$nj/cntkInputFeat.scp ] || [ ! -e $ssdata/$nj/cntkInputStft.scp ] || [ ! -e $sfdata/$nj/cntkInput.counts ]; then
 $cmd JOB=1:$nj $dir/log/split_input.JOB.log \
    feat-to-len "$feats" ark,t:"$inputCounts" || exit 1;
 
@@ -66,7 +66,10 @@ $cmd JOB=1:$nj $dir/log/make_input.JOB.log \
 
 $cmd JOB=1:$nj $dir/log/make_stft.JOB.log \
    echo scp:$ssdata/JOB/feats.scp \> $inputstfts
+fi
 
+
+if [ ! -e $ssdata/$nj/${enhmethod}_wav.scp ] || [ ! -e $ssdata/$nj/${enhmethod}_dirs.txt ]; then
 $cmd JOB=1:$nj $dir/log/make_outwav.JOB.log \
    cat $ssdata/JOB/wav.scp \| sed "s#$wavdir#$dir#" \> $ssdata/JOB/${enhmethod}_wav.scp
 
@@ -75,7 +78,9 @@ $cmd JOB=1:$nj $dir/log/make_outwavdirlist.JOB.log \
 
 $cmd JOB=1:$nj $dir/log/make_outwavdirs.JOB.log \
    local/mk_mult_dirs.sh $ssdata/JOB/${enhmethod}_dirs.txt
+fi
 
+if [ ! -e $ssdata/$nj/wav_durations.ark ]; then
 $cmd JOB=1:$nj $dir/log/make_inwavdur.JOB.log \
    wav-to-duration $inwav_scp $inwavdur
 fi
@@ -86,7 +91,6 @@ if [ $stage -le 0 ]; then
   $cmd $parallel_opts JOB=1:$nj $dir/log/enhance.JOB.log \
     $cnstring inputCounts=$inputCounts inputFeats=$inputfeats inputStftn=$inputstfts numCPUthreads=${num_threads} \| \
     compute-inverse-stft --wav-durations=$inwavdur --config=$stftconf ark:- $outwav_scp || exit 1;
-    #compute-inverse-stft --wav-durations=ark:\"wav-to-duration $inwav_scp ark:- \|\" --config=$stftconf ark:- $outwav_scp || exit 1;
 fi
 
 exit 0;
