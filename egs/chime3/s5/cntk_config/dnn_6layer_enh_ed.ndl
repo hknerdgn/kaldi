@@ -1,0 +1,64 @@
+load=ndlMacroDefine
+run=ndlCreateNetwork
+
+ndlMacroDefine=[
+    
+]
+
+ndlCreateNetwork=[
+
+     #define basic i/o
+     featDim=$featDim$
+     stftDim=$stftDim$
+     hiddenDim=$hiddenDim$
+     hstftDim=$hstftDim$
+     AllhstftDim=$AllhstftDim$
+     features=InputValue(featDim, tag=feature)
+     scalespec=constant(0.00001)
+     One=constant(1,rows=1,cols=1)
+     iscalespec=constant(100000)
+     stftn=InputValue(stftDim, tag=feature)
+     stftc=InputValue(stftDim, tag=feature)
+
+     stftnMag = Scale(scalespec,RowSlice(0, hstftDim, stftn));
+     stftnPhase = RowSlice(hstftDim, hstftDim, stftn);
+     
+     stftcMag = Scale(scalespec,RowSlice(0, hstftDim, stftc));
+     stftcPhase = RowSlice(hstftDim, hstftDim, stftc);
+			       			       
+     AllstftnMag = InputValue(AllhstftDim, tag=feature);
+     ScaledAllstftnMag = Scale(scalespec, AllstftnMag);
+     
+     # define network
+     featNorm = MeanVarNorm(features)
+     L1 = SBFF(featNorm,hiddenDim,featDim)
+     L2 = SBFF(L1,hiddenDim,hiddenDim)
+     L3 = SBFF(L2,hiddenDim,hiddenDim)
+     L4 = SBFF(L3,hiddenDim,hiddenDim)
+     L5 = SBFF(L4,hiddenDim,hiddenDim)
+     AllMask = SBFF(L5,AllhstftDim,hiddenDim)
+     AllMaskedNoisy = ElementTimes(AllMask, ScaledAllstftnMag)
+
+     # linear filtering, AllhstftDim means hidden dimes for all channels with context expansion
+     LL1 = SBFF(AllMaskedNoisy,hiddenDim,AllhstftDim)
+     LL2 = SBFF(LL1,hiddenDim,hiddenDim)
+     LL3 = SBFF(LL2,hiddenDim,hiddenDim)
+     LL4 = SBFF(LL3,hiddenDim,hiddenDim)
+     LL5 = SBFF(LL4,hiddenDim,hiddenDim)
+     Mask = SBFF(LL5,hstftDim,hiddenDim)
+     MaskedNoisy = ElementTimes(Mask, stftnMag)
+     
+     SmaskedNoisy = Scale(iscalespec, MaskedNoisy)
+     MaskedNoisywithPhase = RowStack(SmaskedNoisy, stftnPhase, tag=output)
+     
+     IdealMagMask = ElementDivide(stftcMag,stftnMag)
+     IdealMagMaskLim = MinSc(One,IdealMagMask)
+     IdealMagMaskLimNoisy = ElementTimes(IdealMagMaskLim, stftnMag)
+     
+     MSE = SquareError(MaskedNoisy, stftcMag, tag=criteria)
+     MaskSum = SumElements(Mask, tag=eval)
+     NoisyMSE = SquareError(stftnMag, stftcMag, tag=eval)
+     BestMSE = SquareError(IdealMagMaskLimNoisy, stftcMag, tag=eval)
+     CleanSum = SumElements(stftcMag, tag=eval)
+     NoisySum = SumElements(stftnMag, tag=eval)
+]
