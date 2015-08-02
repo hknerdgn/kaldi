@@ -357,7 +357,7 @@ if [ $stage -le 7 ] ; then
    echo "Enhancing with trained model from epoch ${epoch}"
  
    #for set in {dt05_simu,et05_simu}; do
-   for dataset in {dt05_real,dt05_simu,et05_real,et05_simu}; do
+   for dataset in {tr05_real,tr05_simu,dt05_real,dt05_simu,et05_real,et05_simu}; do
      datafeat=$noisyfeatdir/${dataset}_${noisy_type}${noisy_channels}
      datastft=$noisystftdir/${dataset}_${noisy_type}5 # we use channel 5
      enh_wav_dir=$expdir/enhance_${noisy_type}_${epoch}
