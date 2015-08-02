@@ -25,8 +25,8 @@ clean_channels="1_3_4_5_6"
 noisy_type=ch
 clean_type=reverb_ch
 
-#chime3_dir="/local_data2/watanabe/work/201410CHiME3/CHiME3" #MERL
-chime3_dir="/export/ws15-ffs-data/corpora/chime3/CHiME3" #JSALT
+chime3_dir="/local_data2/watanabe/work/201410CHiME3/CHiME3" #MERL
+#chime3_dir="/export/ws15-ffs-data/corpora/chime3/CHiME3" #JSALT
 
 # CNTK config variables
 start_from_scratch=false # delete experiment directory before starting the experiment
@@ -47,8 +47,8 @@ noisyfeatdir=data-fbank-${fbanksize}
 noisystftdir=data-stft
 cleanstftdir=data-stft
 
-#wavdir="/local_data2/watanabe/work/201410CHiME3/CHiME3/data/audio/16kHz" # MERL
-wavdir="/export/ws15-ffs-data2/herdogan/corpora/chime3/CHiME3/data/audio/16kHz" #JSALT
+wavdir="/local_data2/watanabe/work/201410CHiME3/CHiME3/data/audio/16kHz" # MERL
+#wavdir="/export/ws15-ffs-data2/herdogan/corpora/chime3/CHiME3/data/audio/16kHz" #JSALT
 
 . parse_options.sh || exit 1;
 
