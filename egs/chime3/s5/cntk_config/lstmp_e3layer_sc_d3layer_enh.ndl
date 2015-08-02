@@ -1,0 +1,143 @@
+load=ndlMacroDefine
+run=ndlCreateNetwork_LSTMP
+
+ndlMacroDefine=[
+
+    LSTMPComponent(inputDim, outputDim, cellDim, inputx)
+    {
+        Wxo = Parameter(cellDim, inputDim, init=uniform, initValueScale=1);
+        Wxi = Parameter(cellDim, inputDim, init=uniform, initValueScale=1);
+        Wxf = Parameter(cellDim, inputDim, init=uniform, initValueScale=1);
+        Wxc = Parameter(cellDim, inputDim, init=uniform, initValueScale=1);
+
+        bo = Parameter(cellDim, init=fixedValue, value=0.0);
+        bc = Parameter(cellDim, init=fixedValue, value=0.0);
+        bi = Parameter(cellDim, init=fixedValue, value=0.0);
+        bf = Parameter(cellDim, init=fixedValue, value=0.0);
+
+        Whi = Parameter(cellDim, outputDim, init=uniform, initValueScale=1);
+
+        Wci = Parameter(cellDim, init=uniform, initValueScale=1);
+
+
+        Whf = Parameter(cellDim, outputDim, init=uniform, initValueScale=1);
+        Wcf = Parameter(cellDim, init=uniform, initValueScale=1);
+        Who = Parameter(cellDim, outputDim, init=uniform, initValueScale=1);
+        Wco = Parameter(cellDim, init=uniform, initValueScale=1);
+        Whc = Parameter(cellDim, outputDim, init=uniform, initValueScale=1);
+
+        dh = Delay(outputDim, output, delayTime=1);
+        dc = Delay(cellDim, ct, delayTime=1);
+
+
+        Wxix = Times(Wxi, inputx);
+        Whidh = Times(Whi, dh);
+        Wcidc = DiagTimes(Wci, dc);
+
+        it = Sigmoid (Plus ( Plus (Plus (Wxix, bi), Whidh), Wcidc));
+
+        Wxcx = Times(Wxc, inputx);
+        Whcdh = Times(Whc, dh);
+        bit = ElementTimes(it, Tanh( Plus(Wxcx, Plus(Whcdh, bc))));
+
+        Wxfx = Times(Wxf, inputx);
+        Whfdh = Times(Whf, dh);
+        Wcfdc = DiagTimes(Wcf, dc);
+
+        ft = Sigmoid( Plus (Plus (Plus(Wxfx, bf), Whfdh), Wcfdc));
+
+        bft = ElementTimes(ft, dc);
+
+        ct = Plus(bft, bit);
+
+        Wxox  = Times(Wxo, inputx);
+        Whodh = Times(Who, dh);
+        Wcoct = DiagTimes(Wco, ct);
+
+        ot = Sigmoid( Plus( Plus( Plus(Wxox, bo), Whodh), Wcoct));
+
+        mt = ElementTimes(ot, Tanh(ct));
+
+        Wmr = Parameter(outputDim, cellDim, init=uniform, initValueScale=1);
+        output = Times(Wmr, mt); 
+
+    }
+
+]
+
+ndlCreateNetwork_LSTMP=[
+
+    #define basic i/o
+    baseFeatDim=$baseFeatDim$
+    RowSliceStart=$RowSliceStart$ 
+    FeatDim=$featDim$
+    stftDim=$stftDim$
+    hstftDim=$hstftDim$
+    cellDim=$cellDim$
+    hiddenDim=$hiddenDim$
+    AllhstftDim=$AllhstftDim$
+
+    features=Input(FeatDim, tag=feature)
+    scalespec=constant(0.00001)
+    One=constant(1,rows=1,cols=1)
+    iscalespec=constant(100000)
+    stftn=InputValue(stftDim, tag=feature)
+    stftc=InputValue(stftDim, tag=feature)
+
+    stftnMag = Scale(scalespec,RowSlice(0, hstftDim, stftn));
+    stftnPhase = RowSlice(hstftDim, hstftDim, stftn);
+
+    stftcMag = Scale(scalespec,RowSlice(0, hstftDim, stftc));
+    stftcPhase = RowSlice(hstftDim, hstftDim, stftc);
+			       			       
+    AllstftnMag = InputValue(AllhstftDim, tag=feature);
+    ScaledAllstftnMag = Scale(scalespec, AllstftnMag);
+	
+    feashift=RowSlice(RowSliceStart, baseFeatDim, features);      # shift 5 frames right (x_{t+5} -> x_{t} )
+
+
+    featNorm = MeanVarNorm(feashift)
+
+
+    # layer 1
+    LSTMoutput1 = LSTMPComponent(baseFeatDim, hiddenDim, cellDim, featNorm);
+    # layer 2 
+    LSTMoutput2 = LSTMPComponent(hiddenDim, hiddenDim, cellDim, LSTMoutput1);
+    # layer 3 
+    LSTMoutput3 = LSTMPComponent(hiddenDim, hiddenDim, cellDim, LSTMoutput2);
+
+    # get single channel, (adaptive) filter-and-sum beamformer
+    W = Parameter(hstftDim, hiddenDim, init=uniform, initValueScale=1);
+    b = Parameter(hstftDim, init=fixedvalue, value=0);
+    FirstMask = Sigmoid(Plus(Times(W, LSTMoutput3), b));
+    FirstMaskedNoisy = ElementTimes(FirstMask, stftnMag)
+
+    # if we use delay technique in LSTM, we have to use context...
+    # AllMaskedNoisyshift=RowSlice(RowSliceStart, baseFeatDim, features);      # shift 5 frames right (x_{t+5} -> x_{t} )
+
+    # layer d-1
+    LSTMoutputd1 = LSTMPComponent(AllhstftDim, hiddenDim, cellDim, AllMaskedNoisy);
+    # layer d-2 
+    LSTMoutputd2 = LSTMPComponent(hiddenDim, hiddenDim, cellDim, LSTMoutputd1);
+    # layer d-3 
+    LSTMoutputd3 = LSTMPComponent(hiddenDim, hiddenDim, cellDim, LSTMoutputd2);
+
+    Wd = Parameter(hstftDim, hiddenDim, init=uniform, initValueScale=1);
+    bd = Parameter(hstftDim, init=fixedvalue, value=0);
+    Mask = Sigmoid(Plus(Times(Wd, LSTMoutputd3), bd));
+
+    MaskedNoisy = ElementTimes(Mask, stftnMag)
+    SmaskedNoisy = Scale(iscalespec, MaskedNoisy)
+    MaskedNoisywithPhase = RowStack(SmaskedNoisy, stftnPhase, tag=output)
+    
+    IdealMagMask = ElementDivide(stftcMag,stftnMag)
+    IdealMagMaskLim = MinSc(One,IdealMagMask)
+    IdealMagMaskLimNoisy = ElementTimes(IdealMagMaskLim, stftnMag)
+    
+    MSE = SquareError(MaskedNoisy, stftcMag, tag=criteria)
+    MaskSum = SumElements(Mask, tag=eval)
+    NoisyMSE = SquareError(stftnMag, stftcMag, tag=eval)
+    BestMSE = SquareError(IdealMagMaskLimNoisy, stftcMag, tag=eval)
+    #CleanSum = SumElements(stftcMag, tag=eval)
+    #NoisySum = SumElements(stftnMag, tag=eval)
+]
