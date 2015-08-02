@@ -393,10 +393,11 @@ if [ $stage -le 7 ] ; then
    for dataset in {tr05_real,tr05_simu,dt05_real,dt05_simu,et05_real,et05_simu}; do
      datafeat=$noisyfeatdir/${dataset}_${noisy_type}${noisy_channels}
      datastft=$noisystftdir/${dataset}_${noisy_type}5 # we use channel 5
+     datastftall=${noisystftdir}/${dataset}_${noisy_type}${noisy_channels} # all 5 channels
      enh_wav_dir=$expdir/enhance_${noisy_type}_${epoch}
      cntk_string="cntk configFile=${expdir}/${config_write} DeviceNumber=-1 modelName=$cnmodel featDim=$featDim stftDim=$stftDim hstftDim=$hstftDim AllhstftDim=${AllhstftDim} action=$action ExpDir=$expdir"
      # run in the background and use wait
-     local/enhance_cntk.sh --stftconf $stft_config  --nj $njenh --cmd "$decode_cmd" --num-threads ${num_threads} --parallel-opts '-pe smp 4' $wavdir $datafeat $datastft $enh_wav_dir "$cntk_string" &
+     local/enhance_cntk_multi_ed.sh --stftconf $stft_config  --nj $njenh --cmd "$decode_cmd" --num-threads ${num_threads} --parallel-opts '-pe smp 4' $wavdir $datafeat $datastft $datastftall $enh_wav_dir "$cntk_string" &
    done
    wait;
   else

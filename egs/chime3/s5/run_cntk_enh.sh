@@ -18,7 +18,7 @@ local/run_cntk_enhance_multi.sh --stage 5 --model lstmp_3layer_enh --action Trai
 exit;
 
 # DNN feature stacking
-local/run_cntk_enhance_multi.sh --stage 6 --model dnn_6layer_enh_ed --action TrainDNN
+local/run_cntk_enhance_multi.sh --stage 6 --model dnn_6layer_enh --action TrainDNN
 exit;
 
 local/run_cntk_enhance.sh \

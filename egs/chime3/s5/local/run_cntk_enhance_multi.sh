@@ -363,7 +363,7 @@ if [ $stage -le 7 ] ; then
      enh_wav_dir=$expdir/enhance_${noisy_type}_${epoch}
      cntk_string="cntk configFile=${expdir}/${config_write} DeviceNumber=-1 modelName=$cnmodel featDim=$featDim stftDim=$stftDim hstftDim=$hstftDim action=$action ExpDir=$expdir"
      # run in the background and use wait
-     local/enhance_cntk.sh --stftconf $stft_config  --nj $njenh --cmd "$decode_cmd" --num-threads ${num_threads} --parallel-opts '-pe smp 4' $wavdir $datafeat $datastft $enh_wav_dir "$cntk_string" &
+     local/enhance_cntk_multi.sh --stftconf $stft_config  --nj $njenh --cmd "$decode_cmd" --num-threads ${num_threads} --parallel-opts '-pe smp 4' $wavdir $datafeat $datastft $enh_wav_dir "$cntk_string" &
    done
    wait;
   else
