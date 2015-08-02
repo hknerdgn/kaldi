@@ -12,17 +12,17 @@
 #export scoring_cmd="queue.pl -P inf_hcrc_cstr_nst  -l h_rt=00:20:00"
 
 #On WS15 cluster( AWS-EC2)
-#export train_cmd="queue.pl -l arch=*64* -q all.q"
-#export decode_cmd="queue.pl -l arch=*64* --mem 4G -q all.q"
-#export highmem_cmd="queue.pl -l arch=*64* --mem 4G -q all.q"
-#export scoring_cmd="queue.pl -l arch=*64* -q all.q"
-#export cuda_cmd="queue.pl --gpu 1"
-#export cuda_cmd="queue.pl -q gpu.q"
-#export cuda_cmd=run.pl
+export train_cmd="queue.pl -l arch=*64*"
+export decode_cmd="queue.pl -l arch=*64* --mem 4G"
+export highmem_cmd="queue.pl -l arch=*64* --mem 4G"
+export scoring_cmd="queue.pl -l arch=*64*"
+export cuda_cmd="queue.pl --gpu 1"
+export cntk_decode_cmd="queue.pl -l arch=*64* --mem 4G"
+export cntk_train_cmd="queue.pl -q gpu.q --mem 10G"
 
 # To run locally, use:
-export train_cmd=run.pl
-export cntk_train_cmd=run.pl
-export decode_cmd=run.pl
-export highmem_cmd=run.pl
-export cuda_cmd=run.pl
+#export train_cmd=run.pl
+#export cntk_train_cmd=run.pl
+#export decode_cmd=run.pl
+#export highmem_cmd=run.pl
+#export cuda_cmd=run.pl

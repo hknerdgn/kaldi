@@ -25,7 +25,8 @@ clean_channels="1_3_4_5_6"
 noisy_type=ch
 clean_type=reverb_ch
 
-chime3_dir="/local_data2/watanabe/work/201410CHiME3/CHiME3"
+#chime3_dir="/local_data2/watanabe/work/201410CHiME3/CHiME3" #MERL
+chime3_dir="/export/ws15-ffs-data/corpora/chime3/CHiME3" #JSALT
 
 # CNTK config variables
 start_from_scratch=false # delete experiment directory before starting the experiment
@@ -46,7 +47,8 @@ noisyfeatdir=data-fbank-${fbanksize}
 noisystftdir=data-stft
 cleanstftdir=data-stft
 
-wavdir="/local_data2/watanabe/work/201410CHiME3/CHiME3/data/audio/16kHz"
+#wavdir="/local_data2/watanabe/work/201410CHiME3/CHiME3/data/audio/16kHz" # MERL
+wavdir="/export/ws15-ffs-data2/herdogan/corpora/chime3/CHiME3/data/audio/16kHz" #JSALT
 
 . parse_options.sh || exit 1;
 
@@ -234,6 +236,7 @@ if [ $stage -le 5 ]; then
       echo -n "${noisyfeatdir}/${dataset}_${noisy_type}${noisy_channels} " >> $expdir/stack_feat_${dataset}.sh
       echo -n "$expdir/append_feat_${dataset}_${noisy_type}${noisy_channels} " >> $expdir/stack_feat_${dataset}.sh
       echo -n "fbank-${fbanksize}" >> $expdir/stack_feat_${dataset}.sh
+      chmod +x $expdir/stack_feat_${dataset}.sh
       $expdir/stack_feat_${dataset}.sh
     fi
     # noisy stft stacking
@@ -247,6 +250,7 @@ if [ $stage -le 5 ]; then
       echo -n "${noisystftdir}/${dataset}_${noisy_type}${noisy_channels} " >> $expdir/stack_stft_${dataset}.sh
       echo -n "$expdir/append_stft_${dataset}_${noisy_type}${noisy_channels} " >> $expdir/stack_stft_${dataset}.sh
       echo -n "stft" >> $expdir/stack_stft_${dataset}.sh
+      chmod +x $expdir/stack_stft_${dataset}.sh
       $expdir/stack_stft_${dataset}.sh
     fi
     # extract power spectrum
@@ -386,7 +390,7 @@ if [ $stage -le 7 ] ; then
    echo "Enhancing with trained model from epoch ${epoch}"
  
    #for set in {dt05_simu,et05_simu}; do
-   for dataset in {dt05_real,dt05_simu,et05_real,et05_simu}; do
+   for dataset in {tr05_real,tr05_simu,dt05_real,dt05_simu,et05_real,et05_simu}; do
      datafeat=$noisyfeatdir/${dataset}_${noisy_type}${noisy_channels}
      datastft=$noisystftdir/${dataset}_${noisy_type}5 # we use channel 5
      enh_wav_dir=$expdir/enhance_${noisy_type}_${epoch}
