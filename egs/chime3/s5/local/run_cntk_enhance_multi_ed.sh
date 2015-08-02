@@ -25,13 +25,14 @@ clean_channels="1_3_4_5_6"
 noisy_type=ch
 clean_type=reverb_ch
 
-chime3_dir="/local_data2/watanabe/work/201410CHiME3/CHiME3"
+chime3_dir="/local_data2/watanabe/work/201410CHiME3/CHiME3" #MERL
+#chime3_dir="/export/ws15-ffs-data/corpora/chime3/CHiME3" #JSALT
 
 # CNTK config variables
 start_from_scratch=false # delete experiment directory before starting the experiment
 model=dnn_6layer_enh # {dnn_3layer,dnn_6layer,lstmp-3layer}
 action=TrainDNN # {TrainDNN, TrainLSTM}
-cntk_config=CNTK2_enh.config
+cntk_config=CNTK2_enh_ed.config
 config_write=CNTK2_write_enh.config
 nj=20
 njenh=4
@@ -46,7 +47,8 @@ noisyfeatdir=data-fbank-${fbanksize}
 noisystftdir=data-stft
 cleanstftdir=data-stft
 
-wavdir="/local_data2/watanabe/work/201410CHiME3/CHiME3/data/audio/16kHz"
+wavdir="/local_data2/watanabe/work/201410CHiME3/CHiME3/data/audio/16kHz" # MERL
+#wavdir="/export/ws15-ffs-data2/herdogan/corpora/chime3/CHiME3/data/audio/16kHz" #JSALT
 
 . parse_options.sh || exit 1;
 
@@ -234,6 +236,7 @@ if [ $stage -le 5 ]; then
       echo -n "${noisyfeatdir}/${dataset}_${noisy_type}${noisy_channels} " >> $expdir/stack_feat_${dataset}.sh
       echo -n "$expdir/append_feat_${dataset}_${noisy_type}${noisy_channels} " >> $expdir/stack_feat_${dataset}.sh
       echo -n "fbank-${fbanksize}" >> $expdir/stack_feat_${dataset}.sh
+      chmod +x $expdir/stack_feat_${dataset}.sh
       $expdir/stack_feat_${dataset}.sh
     fi
     # noisy stft stacking
@@ -247,7 +250,23 @@ if [ $stage -le 5 ]; then
       echo -n "${noisystftdir}/${dataset}_${noisy_type}${noisy_channels} " >> $expdir/stack_stft_${dataset}.sh
       echo -n "$expdir/append_stft_${dataset}_${noisy_type}${noisy_channels} " >> $expdir/stack_stft_${dataset}.sh
       echo -n "stft" >> $expdir/stack_stft_${dataset}.sh
+      chmod +x $expdir/stack_stft_${dataset}.sh
       $expdir/stack_stft_${dataset}.sh
+    fi
+    # extract power spectrum
+    dim=0
+    for ch in `echo 1_3_4_5_6 | tr "_" " "`; do 
+      echo -n "${dim}-"
+      d=`feat-to-dim --print-args=false "scp:data-stft/dt05_simu_ch${ch}/feats.scp" -`
+      halfd=`echo "$d / 2" | bc`
+      end_d=`echo "${dim} + $halfd - 1" | bc`
+      echo -n "${end_d},"
+      dim=`echo "${dim} + ${d}" | bc`
+    done | sed -e 's/\,$//' > ${noisystftdir}/${dataset}_${noisy_type}${noisy_channels}/dim_mag.tmp
+    if [ ! -f ${noisystftdir}/${dataset}_${noisy_type}${noisy_channels}/feats.stftnmag.ark ]; then
+      select-feats `cat ${noisystftdir}/${dataset}_${noisy_type}${noisy_channels}/dim_mag.tmp` \
+	"scp:${noisystftdir}/${dataset}_${noisy_type}${noisy_channels}/feats.scp" \
+	"ark,scp:${noisystftdir}/${dataset}_${noisy_type}${noisy_channels}/feats.stftnmag.ark,${noisystftdir}/${dataset}_${noisy_type}${noisy_channels}/feats.stftnmag.scp"
     fi
   done
   feats_tr="scp:${noisyfeatdir}/tr05_simu_${noisy_type}${noisy_channels}/feats.scp"
@@ -260,14 +279,21 @@ if [ $stage -le 5 ]; then
   echo "$stftn_tr" > $expdir/cntk_train.stack.stftn
   echo "$stftn_dt" > $expdir/cntk_valid.stack.stftn
 
+  allstftnmag_tr="scp:${noisystftdir}/tr05_simu_${noisy_type}${noisy_channels}/feats.stftnmag.scp"
+  allstftnmag_dt="scp:${noisystftdir}/dt05_simu_${noisy_type}${noisy_channels}/feats.stftnmag.scp"
+  echo "$allstftnmag_tr" > $expdir/cntk_train.stack.stftnmag
+  echo "$allstftnmag_dt" > $expdir/cntk_valid.stack.stftnmag
+
   # noisy feature: stack
   # noisy and clean: ch5
   cp $expdir/cntk_train.stack.feats $expdir/cntk_train.feats
+  cp $expdir/cntk_train.stack.stftnmag $expdir/cntk_train.stftnmag
   cp $expdir/cntk_train.5.stftn $expdir/cntk_train.stftn
   cp $expdir/cntk_train.5.stftc $expdir/cntk_train.stftc
   cp $expdir/cntk_train.5.counts $expdir/cntk_train.counts
 
   cp $expdir/cntk_valid.stack.feats $expdir/cntk_valid.feats
+  cp $expdir/cntk_valid.stack.stftnmag $expdir/cntk_valid.stftnmag
   cp $expdir/cntk_valid.5.stftn $expdir/cntk_valid.stftn
   cp $expdir/cntk_valid.5.stftc $expdir/cntk_valid.stftc
   cp $expdir/cntk_valid.5.counts $expdir/cntk_valid.counts
@@ -280,6 +306,8 @@ featDim=`echo "$baseFeatDim * (2 * $frame_context + 1)"|bc`
 stftn_tr=`cat $expdir/cntk_train.stftn`
 stftDim=`feat-to-dim $stftn_tr -`
 hstftDim=`echo $stftDim/2|bc`
+allstftnmag_tr=`cat $expdir/cntk_train.stftnmag`
+AllhstftDim=`feat-to-dim $allstftnmag_tr -`
 
 #additional arguments for LSTM training, these are required to shift the features
 frame_shift=5 # number of frames to shift the features
@@ -312,6 +340,7 @@ RowSliceStart=$RowSliceStart
 featDim=${featDim}
 stftDim=${stftDim}
 hstftDim=${hstftDim}
+AllhstftDim=${AllhstftDim}
 featureTransform=NO_FEATURE_TRANSFORM
 lrps=${lrps}
 trainEpochs=${train_epochs}
@@ -322,11 +351,13 @@ numThreads=$num_threads
 
 inputCounts=${expdir}/cntk_train.counts
 inputFeats=${expdir}/cntk_train.feats
+inputAllStftnMag=${expdir}/cntk_train.stftnmag
 inputStftn=${expdir}/cntk_train.stftn
 inputStftc=${expdir}/cntk_train.stftc
 
 cvInputCounts=${expdir}/cntk_valid.counts
 cvInputFeats=${expdir}/cntk_valid.feats
+cvInputAllStftnMag=${expdir}/cntk_valid.stftnmag
 cvInputStftn=${expdir}/cntk_valid.stftn
 cvInputStftc=${expdir}/cntk_valid.stftc
 EOF
@@ -344,6 +375,8 @@ $cntk_train_cmd $parallel_opts JOB=1:1 $expdir/log/cntk.JOB.log \
   baseFeatDim=$baseFeatDim RowSliceStart=$RowSliceStart \
   DeviceNumber=$device action=${action} ndlfile=$ndlfile numThreads=$num_threads
 
+echo "$0 successfuly finished.. $dir"
+
 fi
 
 # stage 7 (enhance dev and test sets)
@@ -360,10 +393,11 @@ if [ $stage -le 7 ] ; then
    for dataset in {tr05_real,tr05_simu,dt05_real,dt05_simu,et05_real,et05_simu}; do
      datafeat=$noisyfeatdir/${dataset}_${noisy_type}${noisy_channels}
      datastft=$noisystftdir/${dataset}_${noisy_type}5 # we use channel 5
+     datastftall=${noisystftdir}/${dataset}_${noisy_type}${noisy_channels} # all 5 channels
      enh_wav_dir=$expdir/enhance_${noisy_type}_${epoch}
-     cntk_string="cntk configFile=${expdir}/${config_write} DeviceNumber=-1 modelName=$cnmodel featDim=$featDim stftDim=$stftDim hstftDim=$hstftDim action=$action ExpDir=$expdir"
+     cntk_string="cntk configFile=${expdir}/${config_write} DeviceNumber=-1 modelName=$cnmodel featDim=$featDim stftDim=$stftDim hstftDim=$hstftDim AllhstftDim=${AllhstftDim} action=$action ExpDir=$expdir"
      # run in the background and use wait
-     local/enhance_cntk_multi.sh --stftconf $stft_config  --nj $njenh --cmd "$decode_cmd" --num-threads ${num_threads} --parallel-opts '-pe smp 4' $wavdir $datafeat $datastft $enh_wav_dir "$cntk_string" &
+     local/enhance_cntk_multi_ed.sh --stftconf $stft_config  --nj $njenh --cmd "$decode_cmd" --num-threads ${num_threads} --parallel-opts '-pe smp 4' $wavdir $datafeat $datastft $datastftall $enh_wav_dir "$cntk_string" &
    done
    wait;
   else

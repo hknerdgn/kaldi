@@ -30,9 +30,7 @@ featdir=$2 # where the noisy features are
 stftdir=$3 # where the noisy stfts are
 dir=$4 # where the output enhanced waves are going to be written
 srcdir=`dirname $dir`; # The model directory is one level up from enhanced wav directory.
-testset_epoch=`basename $dir`; # this provides the testset and epoch
-expmodel=`basename $srcdir`; # this is the training  experiment directory
-enhmethod=${expmodel}_${testset_epoch}
+enhmethod=`basename $srcdir`; # this is interpreted as the enhmethod
 sfdata=$featdir/split$nj;
 ssdata=$stftdir/split$nj;
 

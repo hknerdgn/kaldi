@@ -28,24 +28,25 @@ echo "$0 $@"  # Print the command line for logging
 wavdir=$1 # main path where the original noisy files are, this will be replaced in the input wav.scp lists with the $dir below
 featdir=$2 # where the noisy features are
 stftdir=$3 # where the noisy stfts are
-dir=$4 # where the output enhanced waves are going to be written
+allstftdir=$4 # where the all noisy stfts are
+dir=$5 # where the output enhanced waves are going to be written
 srcdir=`dirname $dir`; # The model directory is one level up from enhanced wav directory.
-testset_epoch=`basename $dir`; # this provides the testset and epoch
-expmodel=`basename $srcdir`; # this is the training  experiment directory
-enhmethod=${expmodel}_${testset_epoch}
+enhmethod=`basename $srcdir`; # this is interpreted as the enhmethod
 sfdata=$featdir/split$nj;
 ssdata=$stftdir/split$nj;
+sadata=$allstftdir/split$nj;
 
-cnstring=$5
+cnstring=$6
 
 mkdir -p $dir/log
 [[ -d $sfdata && $featdir/feats.scp -ot $sfdata ]] || split_data.sh $featdir $nj || exit 1;
 [[ -d $ssdata && $featdir/feats.scp -ot $ssdata ]] || split_data.sh $stftdir $nj || exit 1;
+[[ -d $sadata && $allfeatdir/feats.stftnmag.scp -ot $sadata ]] || ./local/split_data.sh $allstftdir $nj || exit 1; # special function to deal with stft mag features
 
 echo $nj > $dir/num_jobs
 
 # check that files exist
-for f in $sfdata/$nj/feats.scp $ssdata/$nj/feats.scp $ssdata/$nj/wav.scp; do
+for f in $sfdata/$nj/feats.scp $ssdata/$nj/feats.scp $ssdata/$nj/wav.scp $sadata/$nj/feats.stftnmag.scp; do
   [ ! -f $f ] && echo "$0: no such file $f" && exit 1;
 done
 
@@ -55,11 +56,12 @@ inwav_scp="scp:$ssdata/JOB/wav.scp"
 inputCounts="$sfdata/JOB/cntkInput.counts"
 inputfeats="$sfdata/JOB/cntkInputFeat.scp"
 inputstfts="$ssdata/JOB/cntkInputStft.scp"
+inputallstftmags="$ssdata/JOB/cntkAllInputStftMag.scp"
 # to be made
 outwav_scp="scp:$ssdata/JOB/${enhmethod}_wav.scp"
 inwavdur="ark:$ssdata/JOB/wav_durations.ark"
 
-if [ ! -e $sfdata/$nj/cntkInputFeat.scp ] || [ ! -e $ssdata/$nj/cntkInputStft.scp ] || [ ! -e $sfdata/$nj/cntkInput.counts ]; then
+if [ ! -e $sfdata/$nj/cntkInputFeat.scp ] || [ ! -e $ssdata/$nj/cntkInputStft.scp ] || [ ! -e $sfdata/$nj/cntkInput.counts ] || [ ! -e $sfdata/$nj/cntkAllInputStftMag.scp ]; then
 $cmd JOB=1:$nj $dir/log/split_input.JOB.log \
    feat-to-len "$feats" ark,t:"$inputCounts" || exit 1;
 
@@ -68,6 +70,9 @@ $cmd JOB=1:$nj $dir/log/make_input.JOB.log \
 
 $cmd JOB=1:$nj $dir/log/make_stft.JOB.log \
    echo scp:$ssdata/JOB/feats.scp \> $inputstfts
+
+$cmd JOB=1:$nj $dir/log/make_allstftmag.JOB.log \
+   echo scp:$sadata/JOB/feats.stftnmag.scp \> $inputallstftmags
 fi
 
 
@@ -91,7 +96,7 @@ fi
 # Run the enhancement in the queue
 if [ $stage -le 0 ]; then
   $cmd $parallel_opts JOB=1:$nj $dir/log/enhance.JOB.log \
-    $cnstring inputCounts=$inputCounts inputFeats=$inputfeats inputStftn=$inputstfts numCPUthreads=${num_threads} \| \
+    $cnstring inputCounts=$inputCounts inputFeats=$inputfeats inputStftn=$inputstfts inputAllStftnMag=$inputallstftmags numCPUthreads=${num_threads} \| \
     compute-inverse-stft --wav-durations=$inwavdur --config=$stftconf ark:- $outwav_scp || exit 1;
 fi
 
