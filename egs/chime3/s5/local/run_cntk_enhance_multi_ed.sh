@@ -33,7 +33,7 @@ start_from_scratch=false # delete experiment directory before starting the exper
 model=dnn_6layer_enh # {dnn_3layer,dnn_6layer,lstmp-3layer}
 action=TrainDNN # {TrainDNN, TrainLSTM}
 cntk_config=CNTK2_enh_ed.config
-config_write=CNTK2_write_enh.config
+config_write=CNTK2_write_enh_ed.config
 nj=20
 njenh=4
 
