@@ -356,7 +356,6 @@ ndlCreateNetwork_LSTMP=[
     scalespec=constant(0.00001)
     One=constant(1,rows=1,cols=1)
     iscalespec=constant(100000)
-    floorscale=constant(0.001)
     stftn=InputValue(stftDim, tag=feature)
     stftc=InputValue(stftDim, tag=feature)
 
@@ -385,19 +384,13 @@ ndlCreateNetwork_LSTMP=[
     W = Parameter(AllhstftDim, hiddenDim, init=uniform, initValueScale=1);
     b = Parameter(AllhstftDim, init=fixedvalue, value=0);
     AllMask = Sigmoid(Plus(Times(W, LSTMoutput3), b));
-    AllMaskedNoisy = ElementTimes(AllMask, ScaledAllstftnMag)
-
-    # Spectrum Subtraction with smoothing
-    Speech = RowSlice(0, hstftDim, AllMaskedNoisy)
-    Noise = RowSlice(hstftDim, hstftDim, AllMaskedNoisy)
-    SubtractedSpeech =  ReLU(Minus(Speech, Noise))
-    SmoothedSubtractedSpeech = Plus(SubtractedSpeech, Scale(floorscale, StftnMag))
+    AllMaskedNoisyLog = Log(ElementTimes(AllMask, ScaledAllstftnMag))
 
     # if we use delay technique in LSTM, we have to use context...
     # AllMaskedNoisyshift=RowSlice(RowSliceStart, baseFeatDim, features);      # shift 5 frames right (x_{t+5} -> x_{t} )
 
     # layer d-1
-    LSTMoutputd1 = LSTMPComponent(hstftDim, hiddenDim, cellDim, SmoothedSubtractedSpeech);
+    LSTMoutputd1 = LSTMPComponent(AllhstftDim, hiddenDim, cellDim, AllMaskedNoisyLog);
     # layer d-2 
     LSTMoutputd2 = LSTMPComponent(hiddenDim, hiddenDim, cellDim, LSTMoutputd1);
     # layer d-3 
