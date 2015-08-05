@@ -1748,7 +1748,7 @@ template<typename Real> static void UnitTestToeplitzSolve() {
     printf("Matrix dimension: %d\n", dimN);
 
     Vector<Real> r(dimN), c(dimN), y(dimN), x(dimN), x2(dimN), y2(dimN), y3(dimN);
-    Matrix<Real> rmat(dimN,dimN);
+    Matrix<Real> rmat(dimN,dimN),rcmat(dimN,dimN);
     r.SetRandn();
     c.SetRandn();
     c(0)=r(0); // force them to be the same
@@ -1759,14 +1759,20 @@ template<typename Real> static void UnitTestToeplitzSolve() {
     y2.AddMatVec(1, rmat, kNoTrans, x, 0);
 
     toeplitz_solve<Real>(r,c,y,&x2);
-    make_nonsym_toeplitz_matrix<Real>(r,c,&rmat);
-    y3.AddMatVec(1, rmat, kNoTrans, x2, 0);
+    make_nonsym_toeplitz_matrix<Real>(r,c,&rcmat);
+    y3.AddMatVec(1, rcmat, kNoTrans, x2, 0);
     if (i == 0) {
       printf("rmat");
       for (int32 k=0;k<dimN;k++) {
         printf("\n");
         for (int32 l=0; l<dimN;l++)
           printf("%.2f ",rmat(k,l));
+      }
+      printf("\nrcmat");
+      for (int32 k=0;k<dimN;k++) {
+        printf("\n");
+        for (int32 l=0; l<dimN;l++)
+          printf("%.2f ",rcmat(k,l));
       }
       printf("\nr\n");
       for (int32 l=0; l<dimN;l++)
@@ -4531,12 +4537,12 @@ template<typename Real> static void MatrixUnitTest(bool full_test) {
 
 int main() {
   using namespace kaldi;
-  bool full_test = false;
-  kaldi::MatrixUnitTest<float>(full_test);
-  kaldi::MatrixUnitTest<double>(full_test);
+//  bool full_test = false;
+//  kaldi::MatrixUnitTest<float>(full_test);
+//  kaldi::MatrixUnitTest<double>(full_test);
 // test of the new stuff only
-//  kaldi::UnitTestToeplitzSolve<float>();
-//  kaldi::UnitTestToeplitzSolve<double>();
+  kaldi::UnitTestToeplitzSolve<float>();
+  kaldi::UnitTestToeplitzSolve<double>();
   KALDI_LOG << "Tests succeeded.";
 
 }
