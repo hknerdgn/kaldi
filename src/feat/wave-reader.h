@@ -60,7 +60,7 @@ class WaveData {
       : data_(data), samp_freq_(samp_freq) {}
 
   WaveData(BaseFloat samp_freq, const Vector<BaseFloat> &data): samp_freq_(samp_freq) { 
-    data_.Resize(data.Dim(),1); data_.CopyRowFromVec(data,0);
+    data_.Resize(1,data.Dim()); data_.CopyRowFromVec(data,0);
   }
 
   WaveData() : samp_freq_(0.0) {}

@@ -31,8 +31,8 @@
 namespace kaldi {
 /// @addtogroup  feat FeatureExtraction
 /// @{
-  void ChannelConvert(const Vector<BaseFloat> &a,
-		      const Vector<BaseFloat> &b,
+  void ChannelConvert(const VectorBase<BaseFloat> &a,
+		      const VectorBase<BaseFloat> &b,
 		      const int32 &taps,
 		      Vector<BaseFloat> *h,
 		      Vector<BaseFloat> *output);

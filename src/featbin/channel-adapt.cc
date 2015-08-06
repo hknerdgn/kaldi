@@ -1,4 +1,4 @@
-// featbin/compute-stft-feats.cc
+// featbin/channel-adapt.cc
 
 // Copyright 2015 Hakan Erdogan, Jonathan LeRoux
 
@@ -37,8 +37,6 @@ int main(int argc, char *argv[]) {
         ParseOptions po(usage);
         // Define defaults for gobal options
 
-        // Register the option struct
-        stft_opts.Register(&po);
         // Register the options
         po.Register("channel", &channel, "Channel to extract (-1 -> expect mono, 0 -> left, 1 -> right)");
         po.Register("min-duration", &min_duration, "Minimum duration of utterances to process (in seconds).");
@@ -71,9 +69,10 @@ int main(int argc, char *argv[]) {
             KALDI_ASSERT(utt1 == utt2);
             const WaveData &wave1_data = reader1.Value();
             const WaveData &wave2_data = reader2.Value();
+            int32 samp_rate=wave1_data.SampFreq();
             if (wave1_data.Duration() < min_duration) {
-                KALDI_WARN << "File: " << utt << " is too short ("
-                           << wave_data.Duration() << " sec): producing no output.";
+                KALDI_WARN << "File: " << utt1 << " is too short ("
+                           << wave1_data.Duration() << " sec): producing no output.";
                 continue;
             }
             KALDI_ASSERT(wave1_data.Duration() == wave2_data.Duration());
@@ -88,7 +87,7 @@ int main(int argc, char *argv[]) {
                                    << num_chan  << " channels; defaulting to zero";
                 } else {
                     if (this_chan1 >= num_chan) {
-                        KALDI_WARN << "File with id " << utt << " has "
+                        KALDI_WARN << "File with id " << utt1 << " has "
                                    << num_chan << " channels but you specified channel "
                                    << channel << ", producing no output.";
                         continue;
@@ -96,16 +95,23 @@ int main(int argc, char *argv[]) {
                 }
             }
 
-            SubVector<BaseFloat> waveform1(wave1_data.Data(), this_chan);
-            SubVector<BaseFloat> waveform2(wave2_data.Data(), this_chan);
+            SubVector<BaseFloat> waveform1(wave1_data.Data(), this_chan1);
+            SubVector<BaseFloat> waveform2(wave2_data.Data(), this_chan1);
             Vector<BaseFloat> waveform3;
             Vector<BaseFloat> filter;
-            channel_adapt(waveform1,waveform2,taps,filter,waveform3);
+            ChannelConvert(waveform1,waveform2,taps,&filter,&waveform3);
             if(num_utts % 10 == 0)
                 KALDI_LOG << "Processed " << num_utts << " utterances";
 
             // convert matrix to WaveData
             WaveData wave(samp_rate, waveform3);
+            Vector<BaseFloat> diff(waveform1);
+            diff.AddVec(-1.0, waveform2);
+            BaseFloat diff12=diff.Norm(2); // l2 norm
+            diff.CopyFromVec(waveform2);
+            diff.AddVec(-1.0, waveform3);
+            BaseFloat diff13=diff.Norm(2); // l2 norm
+            KALDI_LOG << utt1 << " RMSE(1,2)= " << diff12 << ". RMSE(2,3)= " << diff13 << "." ;
             writer.Write(utt1, wave); // write data in wave format.
             num_success++;
         }
