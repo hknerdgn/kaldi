@@ -10,6 +10,7 @@ nj=4
 cmd=run.pl
 compress=true
 rewrite=true
+wavdir=
 # End configuration section.
 
 echo "$0 $@"  # Print the command line for logging
@@ -23,6 +24,7 @@ if [ $# != 6 ]; then
    echo "  --nj <nj>                                        # number of parallel jobs"
    echo "  --rewrite <true|false>                           # rewrite features regardless they exist"
    echo "  --cmd (utils/run.pl|utils/queue.pl <queue opts>) # how to run jobs."
+   echo "  --wavdir <wavdir>                                # where the wavs are"
    exit 1;
 fi
 
@@ -48,10 +50,10 @@ fi
     utils/copy_data_dir.sh data/$x ${featlnkdir}/$x
     mkdir -p $featrawdir
     if [ $ftype == "fbank" ]; then
-      steps/make_fbank.sh --nj ${njfeat} --cmd "$train_cmd" --fbank-config ${fconf} \
+      steps/make_fbank.sh --nj ${nj} --cmd "$cmd" --fbank-config ${fconf} \
         ${featlnkdir}/$x exp/make_fbank/$x $featrawdir || exit 1;
-    elif [ $ftype == "stft" ]; then
-      local/make_stft.sh  --nj ${njfeat} --cmd "$train_cmd" --stft-config  ${fconf} \
+    elif [ $ftype == "stft" ] || [ $ftype == "stftamp" ] || [ $ftype == "stftphase" ]; then
+      local/make_stft.sh  --nj ${nj} --cmd "$cmd" --stft-config  ${fconf} \
         ${featlnkdir}/$x exp/make_stft/$x  $featrawdir || exit 1;
     fi
   fi
