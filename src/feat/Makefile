@@ -8,7 +8,7 @@ TESTFILES = feature-mfcc-test feature-plp-test feature-fbank-test \
          feature-functions-test pitch-functions-test feature-sdc-test \
          resample-test online-feature-test sinusoid-detection-test
 
-OBJFILES = feature-functions.o stft-functions.o feature-mfcc.o feature-plp.o feature-fbank.o \
+OBJFILES = feature-functions.o stft-functions.o signal-functions.o feature-mfcc.o feature-plp.o feature-fbank.o \
            feature-spectrogram.o feature-stft.o inverse-stft.o mel-computations.o wave-reader.o \
            pitch-functions.o resample.o online-feature.o sinusoid-detection.o
 

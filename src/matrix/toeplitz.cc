@@ -30,7 +30,7 @@ namespace kaldi {
 // x is the solution from 0 to n-1
 
 template<typename Real>
-void toeplitz_solve(const Vector<Real> rvec, const Vector<Real> cvec, const Vector<Real> yvec, Vector<Real> *xvec)
+void toeplitz_solve(const Vector<Real> &rvec, const Vector<Real> &cvec, const Vector<Real> &yvec, Vector<Real> *xvec)
 {
     int32 j,k,m,mp1,mp2,m2,nm1;
     Real pp,pt1,pt2,qq,qt1,qt2,sd,sgd,sgn,shn,sxn;
@@ -44,7 +44,7 @@ void toeplitz_solve(const Vector<Real> rvec, const Vector<Real> cvec, const Vect
     x=xvec->Data();
     nm1=n-1;
     KALDI_ASSERT(r[0] == c[0]);
-    if (r[0] == 0.0) KALDI_ERR << "toeplitz_solve: singular input matrix";
+    if (r[0] == 0.0) KALDI_ERR << "toeplitz_solve: singular input matrix, detection 1";
     x[0]=y[0]/r[0];
     if (nm1 == 0) return;
     Real g[nm1];
@@ -61,7 +61,7 @@ void toeplitz_solve(const Vector<Real> rvec, const Vector<Real> cvec, const Vect
             sxn += c[mp1-j]*x[j];
             sd += c[mp1-j]*g[m-j];
         }
-        if (sd == 0.0) KALDI_ERR << "toeplitz_solve: singular input matrix";
+        if (sd == 0.0) KALDI_ERR << "toeplitz_solve: singular input matrix, detection 2";
         x[mp1]=sxn/sd; // init x[1] through x[n-1]
         for (j=0; j<mp1; j++)
             x[j] -= x[mp1]*g[m-j]; // update x[j] for j less than or equal to m
@@ -74,7 +74,7 @@ void toeplitz_solve(const Vector<Real> rvec, const Vector<Real> cvec, const Vect
             shn += c[mp1-j]*h[j];
             sgd += r[mp1-j]*h[m-j];
         }
-        if (sgd == 0.0) KALDI_ERR << "toeplitz_solve: singular matrix";
+        if (sgd == 0.0) KALDI_ERR << "toeplitz_solve: singular input matrix, detection 3";
         g[mp1]=sgn/sgd;
         h[mp1]=shn/sd;
         k=m;
@@ -96,7 +96,7 @@ void toeplitz_solve(const Vector<Real> rvec, const Vector<Real> cvec, const Vect
 }
 
 template<typename Real>
-void make_toeplitz_matrix(const Vector<Real> r, Matrix<Real> *rmat)
+void make_toeplitz_matrix(const Vector<Real> &r, Matrix<Real> *rmat)
 {
   int32 n=r.Dim();
   for (int32 i=0; i<n; i++)
@@ -105,7 +105,7 @@ void make_toeplitz_matrix(const Vector<Real> r, Matrix<Real> *rmat)
 }
 
 template<typename Real>
-void make_nonsym_toeplitz_matrix(const Vector<Real> r, const Vector<Real> c,  Matrix<Real> *rmat)
+void make_nonsym_toeplitz_matrix(const Vector<Real> &r, const Vector<Real> &c,  Matrix<Real> *rmat)
 {
   int32 n=r.Dim();
   KALDI_ASSERT(n==c.Dim());
@@ -118,11 +118,11 @@ void make_nonsym_toeplitz_matrix(const Vector<Real> r, const Vector<Real> c,  Ma
       (*rmat)(i,j)= c(i-j);
 }
 
-template void toeplitz_solve(const Vector<float> rvec, const Vector<float> cvec, const Vector<float> yvec, Vector<float> *xvec);
-template void toeplitz_solve(const Vector<double> rvec, const Vector<double> cvec, const Vector<double> yvec, Vector<double> *xvec);
-template void make_toeplitz_matrix(const Vector<float> r, Matrix<float> *rmat);
-template void make_toeplitz_matrix(const Vector<double> r, Matrix<double> *rmat);
-template void make_nonsym_toeplitz_matrix(const Vector<float> r, const Vector<float> c, Matrix<float> *rmat);
-template void make_nonsym_toeplitz_matrix(const Vector<double> r, const Vector<double> c, Matrix<double> *rmat);
+template void toeplitz_solve(const Vector<float> &rvec, const Vector<float> &cvec, const Vector<float> &yvec, Vector<float> *xvec);
+template void toeplitz_solve(const Vector<double> &rvec, const Vector<double> &cvec, const Vector<double> &yvec, Vector<double> *xvec);
+template void make_toeplitz_matrix(const Vector<float> &r, Matrix<float> *rmat);
+template void make_toeplitz_matrix(const Vector<double> &r, Matrix<double> *rmat);
+template void make_nonsym_toeplitz_matrix(const Vector<float> &r, const Vector<float> &c, Matrix<float> *rmat);
+template void make_nonsym_toeplitz_matrix(const Vector<double> &r, const Vector<double> &c, Matrix<double> *rmat);
 
 }  // namespace kaldi

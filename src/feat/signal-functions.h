@@ -1,6 +1,6 @@
-// feat/mel-computations.h
+// feat/signal-functions.h
 
-// Copyright 2009-2011  Phonexia s.r.o.;  Microsoft Corporation
+// Copyright 2015 Hakan Erdogan  Jonathan Le Roux
 
 // See ../../COPYING for clarification regarding multiple authors
 //
@@ -17,35 +17,28 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef KALDI_MATRIX_TOEPLITZ_H_
-#define KALDI_MATRIX_TOEPLITZ_H_
+#ifndef KALDI_FEAT_SIGNAL_FUNCTIONS_H_
+#define KALDI_FEAT_SIGNAL_FUNCTIONS_H_
 
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <complex>
-#include <utility>
+#include <string>
 #include <vector>
 
-#include "base/kaldi-common.h"
-#include "util/common-utils.h"
 #include "matrix/matrix-lib.h"
+#include "util/common-utils.h"
+#include "base/kaldi-error.h"
+#include "matrix/toeplitz.h"
 
 namespace kaldi {
-/// \addtogroup matrix_group
+/// @addtogroup  feat FeatureExtraction
 /// @{
+  void ChannelConvert(const VectorBase<BaseFloat> &a,
+		      const VectorBase<BaseFloat> &b,
+		      const int32 &taps,
+		      Vector<BaseFloat> *h,
+		      Vector<BaseFloat> *output);
 
-template<typename Real>
-void toeplitz_solve(const Vector<Real> &r, const Vector<Real> &c, const Vector<Real> &y, Vector<Real> *x);
-
-template<typename Real>
-void make_toeplitz_matrix(const Vector<Real> &r, Matrix<Real> *rmat);
-
-template<typename Real>
-void make_nonsym_toeplitz_matrix(const Vector<Real> &r, const Vector<Real> &c,  Matrix<Real> *rmat);
-
-/// @} end of "addtogroup matrix_group".
-
+/// @} End of "addtogroup feat"
 }  // namespace kaldi
 
-#endif
+
+#endif  // KALDI_FEAT_SIGNAL_FUNCTIONS_H_
