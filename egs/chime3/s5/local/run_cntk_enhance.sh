@@ -10,37 +10,40 @@
 
 num_threads=1
 device=0
-train_epochs=50
-epoch=15 # test epoch, use epoch which gives lowest validation error
+# training noisy-clean pairs
 noisyinput=ch5
-noisytestinput=same # do not change this default, give a different one in command line if needed
 cleaninput=reverb_ch5
+trsubsetsize=all # num utterances (head -n) considered for training
+dtsubsetsize=all # num utterances (head -n) considered for validation
+# test on which channel
+noisytestinput=same # do not change this default, give a different one in command line if needed
+
 stage=0
+# feat extraction parameters
 fbanksize=100
 frameshift_ms=10
 framelength_ms=25
 fs=16000
-lrps=0.001 #learning rate per sample for cntk
-trsubsetsize=all # num utterances (head -n) considered for training
-dtsubsetsize=all # num utterances (head -n) considered for validation
-rewrite=false
+rewrite_feats=false
+
+# parallel jobs
+njfeat=20
+njenh=4
 
 # CNTK config variables
 start_from_scratch=false # delete experiment directory before starting the experiment
-extract_noisy_feat=false
-extract_clean_feat=false
 model=dnn_6layer_enh # {dnn_3layer,dnn_6layer,lstmp-3layer}
 action=TrainDNN # {TrainDNN, TrainLSTM}
 cntk_config=CNTK2_enh.config
 config_write=CNTK2_write_enh.config
-nj=20
-njfeat=20
-njenh=4
 
 # you can give a modelvariety to train a different version of a model
-# for example by changing framelength or hiddenDim variables etc.
+# for example by changing framelength, input features or hiddenDim variables etc.
 modelvariety=
 # cntk model parameters passed to cntk by writing into Base.config
+train_epochs=50
+epoch=15 # test epoch, use epoch which gives lowest validation error
+lrps=0.001 #learning rate per sample for cntk
 hiddenDim=512
 cellDim=1024
 bottleneckDim=256
@@ -146,7 +149,7 @@ if [ "$start_from_scratch" == true ]; then
 fi
 
 # these make necessary files under data/$x
-if [ ! -d data ] || [ $rewrite == true ]; then
+if [ ! -d data ] || [ ${rewrite_feats} == true ]; then
   local/clean_wsj0_data_prep.sh $chime3dir/data/WSJ0 || exit 1;
   local/wsj_prepare_dict.sh || exit 1;
   local/simu_noisy_chime3_data_prep.sh $chime3dir || exit 1;
@@ -157,8 +160,8 @@ fi
 
 for dataset in {tr05,dt05,et05}; do
   for datatype in {real,simu}; do
-    make_feat ${dataset}_${datatype} ${noisyinput} fbank ${fbankvariety} ${fbank_config} ${datatype} ${rewrite}
-    make_feat ${dataset}_${datatype} ${noisyinput} stft  ${stftvariety}  ${stft_config}  ${datatype} ${rewrite}
+    make_feat ${dataset}_${datatype} ${noisyinput} fbank ${fbankvariety} ${fbank_config} ${datatype} ${rewrite_feats}
+    make_feat ${dataset}_${datatype} ${noisyinput} stft  ${stftvariety}  ${stft_config}  ${datatype} ${rewrite_feats}
   done
 done
 
@@ -173,7 +176,7 @@ done
 
 for dataset in {tr05,dt05,et05}; do
   for env in simu; do
-    make_feat ${dataset}_${env} ${cleaninput} stft  ${stftvariety}  ${stft_config}  ${env} ${rewrite}
+    make_feat ${dataset}_${env} ${cleaninput} stft  ${stftvariety}  ${stft_config}  ${env} ${rewrite_feats}
   done
 done
 

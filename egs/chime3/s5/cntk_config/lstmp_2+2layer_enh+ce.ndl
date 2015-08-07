@@ -1,0 +1,304 @@
+load=ndlMacroDefine
+run=ndlCreateNetwork_LSTMP
+
+ndlMacroDefine=[
+    ElementDivide(X,Y)
+    {
+	R=Exp(Minus(Log(X),Log(Y)))
+    }
+    # a is a scalar
+    MinSc(a,X)
+    {
+	M=Negate(Minus(RectifiedLinear(Negate(Minus(X,a))),a))
+    }
+    # a is a scalar
+    MaxSc(a,X)
+    {
+	M=Minus(RectifiedLinear(Plus(X,a)),a)
+    }
+    # Macro definitions
+    #Feed Forward
+    FF(X1, W1, B1)
+    {
+        T=Times(W1,X1)
+        P=Plus(T, B1)
+    }
+
+    #Base feed Forward network, defines Bias and wieght parameters
+    BFF(in, rows, cols)
+    {
+        B=Parameter(rows, init=fixedvalue, value=0)
+        W=Parameter(rows, cols)
+        FF = FF(in, w, b)
+    }
+
+    #RectifiedLinear Base Feed Forward
+    RBFF(in,rowCount,colCount)
+    {
+        BFF = BFF(in, rowCount, colCount)
+        RL = RectifiedLinear(BFF)
+    }
+
+    #Rectified Linear Feed Forward
+    RFF(X2,W2,B2)
+    {   
+        FF = FF(X2, W2, B2)  
+        RL = RectifiedLinear(FF)
+    }
+
+    #RectifiedLinear Feed Forward with Dropout
+    RFFD(X3,W3,B3)
+    {
+        RFF=RFF(X3, W3, B3)
+        DO=Dropout(RFF)
+    }
+
+    #Sigmoid Base Feed Forward
+    SBFF(in,rowCount,colCount)
+    {
+        BFF = BFF(in, rowCount, colCount)
+        S = Sigmoid(BFF)
+    }
+
+    #Sigmoid Base Feed Forward with after activation bias
+    SBFFB(in,rowCount,colCount)
+    {
+        BFF = BFF(in, rowCount, colCount)
+        OB=Parameter(rowCount, init=fixedvalue, value=0)
+        S = Sigmoid(BFF)
+	SB = Plus(S,OB)
+    }
+
+    #RelU Feed Forward with after activation bias
+    RFFB(in,rowCount,colCount)
+    {
+        BFF = BFF(in, rowCount, colCount)
+        OB=Parameter(rowCount, init=fixedvalue, value=0)
+        S = RectifiedLinear(BFF)
+	SB = Plus(S,OB)
+    }
+
+
+    #Sigmoid Feed Forward
+    SFF(X2,W2,B2)
+    {
+        FF = FF(X2, W2, B2)
+        S = Sigmoid(FF)
+    }
+
+    #Sigmoid Feed Forward with Dropout
+    SFFD(X3,W3,B3)
+    {
+        SFF=SFF(X3, W3, B3)
+        DO=Dropout(SFF)
+    }
+
+    #Sigmoid Feed Forward with Dropout
+    SBFFD(inputVal,rowCount,colCount)
+    {
+        SBFF=SBFF(inputVal,rowCount,colCount)
+        DO=Dropout(SBFF)
+    }
+
+    #Sigmoid Feed Forward with after activation bias and Dropout
+    SBFFBD(inputVal,rowCount,colCount)
+    {
+        SBFFB=SBFFB(inputVal,rowCount,colCount)
+        DO=Dropout(SBFFB)
+    }
+
+    #RelU Feed Forward with after activation bias and Dropout
+    RFFBD(inputVal,rowCount,colCount)
+    {
+        RFFB=RFFB(inputVal,rowCount,colCount)
+        DO=Dropout(RFFB)
+    }
+
+    #SoftMax Feed Forward
+    SMFF(x,y,z, labels)
+    {
+        FF = FF(x,y,z)  
+        SM = CrossEntropyWithSoftmax(labels, FF)
+    }
+
+    #SoftMax Base Feed Forward
+    SMBFF(x,r,c, labels)
+    {
+        BFF = BFF(x,r,c)  
+        SM = CrossEntropyWithSoftmax(labels, BFF)
+    }
+
+    #inline Rectified Linear Feed Forward
+    RFF_R(x1, w1, b1)=RectifiedLinear(Plus(Times(w1,x1),b1))
+
+    #inline Rectified Linear Feed Forward with Dropout
+    RFFD_R(x1, w1, b1)=Dropout(RectifiedLinear(Plus(Times(w1,x1),b1)))
+
+
+    # Macro definitions
+    DelayNode(x)
+    {
+        D=Delay(x, delayInput=Dout, delayTime=1)
+    }
+
+    MeanVarNorm(x)
+    {   
+    xMean = Mean(x)
+        xStdDev = InvStdDev(x)
+        xNorm=PerDimMeanVarNormalization(x,xMean,xStdDev)
+    }
+
+    LogPrior(labels)
+    {
+    Prior=Mean(labels)
+    LogPrior=Log(Prior)
+    }   
+
+    LSTMPComponent(inputDim, outputDim, cellDim, inputx)
+    {
+        Wxo = Parameter(cellDim, inputDim, init=uniform, initValueScale=1);
+        Wxi = Parameter(cellDim, inputDim, init=uniform, initValueScale=1);
+        Wxf = Parameter(cellDim, inputDim, init=uniform, initValueScale=1);
+        Wxc = Parameter(cellDim, inputDim, init=uniform, initValueScale=1);
+
+        bo = Parameter(cellDim, init=fixedValue, value=0.0);
+        bc = Parameter(cellDim, init=fixedValue, value=0.0);
+        bi = Parameter(cellDim, init=fixedValue, value=0.0);
+        bf = Parameter(cellDim, init=fixedValue, value=0.0);
+
+        Whi = Parameter(cellDim, outputDim, init=uniform, initValueScale=1);
+
+        Wci = Parameter(cellDim, init=uniform, initValueScale=1);
+
+
+        Whf = Parameter(cellDim, outputDim, init=uniform, initValueScale=1);
+        Wcf = Parameter(cellDim, init=uniform, initValueScale=1);
+        Who = Parameter(cellDim, outputDim, init=uniform, initValueScale=1);
+        Wco = Parameter(cellDim, init=uniform, initValueScale=1);
+        Whc = Parameter(cellDim, outputDim, init=uniform, initValueScale=1);
+
+        dh = Delay(outputDim, output, delayTime=1);
+        dc = Delay(cellDim, ct, delayTime=1);
+
+
+        Wxix = Times(Wxi, inputx);
+        Whidh = Times(Whi, dh);
+        Wcidc = DiagTimes(Wci, dc);
+
+        it = Sigmoid (Plus ( Plus (Plus (Wxix, bi), Whidh), Wcidc));
+
+        Wxcx = Times(Wxc, inputx);
+        Whcdh = Times(Whc, dh);
+        bit = ElementTimes(it, Tanh( Plus(Wxcx, Plus(Whcdh, bc))));
+
+        Wxfx = Times(Wxf, inputx);
+        Whfdh = Times(Whf, dh);
+        Wcfdc = DiagTimes(Wcf, dc);
+
+        ft = Sigmoid( Plus (Plus (Plus(Wxfx, bf), Whfdh), Wcfdc));
+
+        bft = ElementTimes(ft, dc);
+
+        ct = Plus(bft, bit);
+
+        Wxox  = Times(Wxo, inputx);
+        Whodh = Times(Who, dh);
+        Wcoct = DiagTimes(Wco, ct);
+
+        ot = Sigmoid( Plus( Plus( Plus(Wxox, bo), Whodh), Wcoct));
+
+        mt = ElementTimes(ot, Tanh(ct));
+
+        Wmr = Parameter(outputDim, cellDim, init=uniform, initValueScale=1);
+        output = Times(Wmr, mt); 
+
+    }
+
+]
+
+ndlCreateNetwork_LSTMP=[
+    #define basic i/o
+    baseFeatDim=$baseFeatDim$
+    RowSliceStart=$RowSliceStart$ 
+    enhFeatDim=$enhFeatDim$
+    ceFeatDim=$ceFeatDim$
+    stftDim=$stftDim$
+    hstftDim=$hstftDim$
+
+    enhCellDim=$enhCellDim$
+    enhHiddenDim=$enhHiddenDim$
+    ceCellDim=$ceCellDim$
+    ceHiddenDim=$ceHiddenDim$
+    EnhMelFileName=$EnhMelFileName$
+    CeMelFileName=$CeMelFileName$
+
+    enhfeatures=Input(FeatDim, tag=feature)
+    scalespec=constant(0.00001)  # this could be 2^(-15)
+    One=constant(1,rows=1,cols=1)
+    iscalespec=constant(100000) # this could be 2^15
+    stftn=InputValue(stftDim, tag=feature)
+    stftc=InputValue(stftDim, tag=feature)
+
+    stftnMag = Scale(scalespec,RowSlice(0, hstftDim, stftn));
+    stftnPhase = RowSlice(hstftDim, hstftDim, stftn);
+
+    stftcMag = Scale(scalespec,RowSlice(0, hstftDim, stftc));
+    stftcPhase = RowSlice(hstftDim, hstftDim, stftc);
+			       			       
+    EnhMelMatrix = Parameter(enhfeatDim,hstftDim,init=fromFile,InitFilePath=EnhMelFileName,needGradient=$EnhMelNeedGradient$)
+    CEMelMatrix = Parameter(cefeatDim,hstftDim,init=fromFile,InitFilePath=CeMelFileName,needGradient=$CeMelNeedGradient$)
+
+    stftnPow=ElementTimes(stftnMag,stftnMag)
+    enhFeatures=Log(Times(EnhMelMatrix, stftnPow))
+    enhFeatNorm = MeanVarNorm(enhFeatures)
+
+    # layer 1
+    LSTMenh1 = LSTMPComponent(hstftDim, enhHiddenDim, enhCellDim, enhFeatNorm);
+    # layer 2 
+    LSTMenh2 = LSTMPComponent(enhHiddenDim, enhHiddenDim, enhCellDim, LSTMenh1);
+
+    Wenh = Parameter(hstftDim, enhHiddenDim, init=uniform, initValueScale=1);
+    benh = Parameter(hstftDim, init=fixedvalue, value=0);
+    Mask = Sigmoid(Plus(Times(Wenh, LSTMenh2), benh));
+
+    MaskedNoisy = ElementTimes(Mask, stftnMag)
+    MaskedNoisyPow = ElementTimes(MaskedNoisy, MaskedNoisy)
+    ceNoisyFeatures=Times(CEMelMatrix, stftnPow)
+    ceMaskedNoisyFeatures=Times(CEMelMatrix, MaskedNoisyPow)
+ 
+    ceNormNoisyFeatures=MeanVarNorm(ceNoisyFeatures)
+    ceNormMaskedNoisyFeature=PerDimMeanVarNormalization(ceMaskedNoisyFeatures, ceNormNoisyFeatures.xMean, ceNormNoisyFeatures.xStdDev)
+    ceFeatures=RowStack(ceNormNoisyFeatures, ceNormMaskedNoisyFeatures)
+
+    # layer 1
+    LSTMce1 = LSTMPComponent(ceFeatDim, ceHiddenDim, ceCellDim, ceFeatures);
+    # layer 2 
+    LSTMce2 = LSTMPComponent(ceHiddenDim, ceHiddenDim, ceCellDim, LSTMce1);
+
+    # for enhancement output
+    SmaskedNoisy = Scale(iscalespec, MaskedNoisy)
+    #MaskedNoisywithPhase = RowStack(SmaskedNoisy, stftnPhase, tag=output)
+    MaskedNoisywithPhase = RowStack(SmaskedNoisy, stftnPhase)
+    
+    IdealMagMask = ElementDivide(stftcMag,stftnMag)
+    IdealMagMaskLim = MinSc(One,IdealMagMask)
+    IdealMagMaskLimNoisy = ElementTimes(IdealMagMaskLim, stftnMag)
+    
+    MSE = SquareError(MaskedNoisy, stftcMag, tag=criteria)
+    MaskSum = SumElements(Mask, tag=eval)
+    NoisyMSE = SquareError(stftnMag, stftcMag, tag=eval)
+    BestMSE = SquareError(IdealMagMaskLimNoisy, stftcMag, tag=eval)
+    #CleanSum = SumElements(stftcMag, tag=eval)
+    #NoisySum = SumElements(stftnMag, tag=eval)
+
+    # for the cross-entropy output
+    Wce = Parameter(labelDim, ceHiddenDim, init=uniform, initValueScale=1);
+    bce = Parameter(labelDim, init=fixedvalue, value=0);
+    LSTMoutputW = Plus(Times(Wce, LSTMce2), bce);
+
+    cr = CrossEntropyWithSoftmax(labels, LSTMoutputW,tag=Criteria);
+    Err = ErrorPrediction(labels,LSTMoutputW,tag=Eval);
+
+    logPrior = LogPrior(labels)
+    ScaledLogLikelihood=Minus(LSTMoutputW,logPrior,tag=Output)
+]
