@@ -425,6 +425,7 @@ if [ $stage -le 6 ]; then
   cp $expdir/cntk_valid.${refch}.counts $expdir/cntk_valid.counts
 fi
 
+
 frame_context=7  # one sided context size (for DNN)
 feats_tr=`cat $expdir/cntk_train.feats`
 baseFeatDim=`feat-to-dim $feats_tr -`
@@ -432,6 +433,10 @@ featDim=`echo "$baseFeatDim * (2 * $frame_context + 1)"|bc`
 stftn_tr=`cat $expdir/cntk_train.stftn`
 stftDim=`feat-to-dim $stftn_tr -`
 hstftDim=`echo $stftDim/2|bc`
+melDim=40
+
+# get mel matrix
+local/write_kaldi_melmatrix.pl $melDim 25 16000 1 > $expdir/mel$melDim.mat
 
 labelDim=`am-info $alidir_tr/final.mdl | grep "pdfs" | awk '{print $4;}'`
 for (( c=0; c<labelDim; c++)) ; do
@@ -474,6 +479,9 @@ lrps=${lrps}
 trainEpochs=${train_epochs}
 labelDim=${labelDim}
 labelMapping=${expdir}/cntk_label.mapping
+
+melDim=${melDim}
+MelFileName=$expdir/mel$melDim.mat
 
 action=${action}
 ndlfile=$ndlfile

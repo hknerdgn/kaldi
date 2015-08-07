@@ -4,7 +4,7 @@ use strict;
 use POSIX;
 
 # to be run from .. (parent directory)
-my $bin = "../../../src/featbin/compute-fbank-feats";
+my $bin = "compute-fbank-feats";
 
 my $mel_bins = 40;
 if ($ARGV[0] > 0) {
