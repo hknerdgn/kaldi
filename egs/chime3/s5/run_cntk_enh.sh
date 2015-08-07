@@ -8,6 +8,8 @@ exit;
 wavdir=/export/ws15-ffs-data/corpora/chime3/CHiME3/data/audio/16kHz
 
 # train and apply using cntk dnn model
+local/run_cntk_ce_multi_ed.sh --stage 7 --action TrainLSTM --config CNTK2_lstm_ce_ed.config --model lstmp_e3layer_sc_log_d3layer_ce.ndl
+exit;
 
 # DNN feature stacking, multi-channel masking, DNN enhanced multi-channel stft stacking
 local/run_cntk_enhance_multi_ed.sh --stage 4 --model lstmp_e3layer_d3layer_enh --action TrainLSTM --cntk_config CNTK2_lstm_enh_ed.config --lrps 0.0001

@@ -45,6 +45,7 @@ addLayerMel=${model}.mel
 
 noisyfeatdir=data-fbank-${fbanksize}
 noisystftdir=data-stft
+noisystftmagdir=data-stft-mag
 cleanstftdir=data-stft
 
 wavdir="/local_data2/watanabe/work/201410CHiME3/CHiME3/data/audio/16kHz" # MERL
@@ -145,7 +146,7 @@ if [ $stage -le 2 ]; then
     noisyinput=${noisy_type}${ch}
 
     # stft feature extraction
-    stftndir=stft/$noisyinput
+    stftndir=stft/abs_phs/$noisyinput
     # simu data
     for dataset in dt05_simu et05_simu tr05_simu; do
       x=${dataset}_${noisyinput}
@@ -175,7 +176,7 @@ if [ $stage -le 3 ]; then
     cleaninput=${clean_type}${ch}
 
     # stft feature extraction
-    stftcdir=stft/$cleaninput
+    stftcdir=stft/abs_phs/$cleaninput
     # only simu data
     for dataset in dt05_simu et05_simu tr05_simu; do
       y=${dataset}_${cleaninput}
@@ -249,7 +250,7 @@ if [ $stage -le 5 ]; then
       done
       echo -n "${noisystftdir}/${dataset}_${noisy_type}${noisy_channels} " >> $expdir/stack_stft_${dataset}.sh
       echo -n "$expdir/append_stft_${dataset}_${noisy_type}${noisy_channels} " >> $expdir/stack_stft_${dataset}.sh
-      echo -n "stft" >> $expdir/stack_stft_${dataset}.sh
+      echo -n "stft/real_imag/$noisyinput" >> $expdir/stack_stft_${dataset}.sh
       chmod +x $expdir/stack_stft_${dataset}.sh
       $expdir/stack_stft_${dataset}.sh
     fi
@@ -263,10 +264,13 @@ if [ $stage -le 5 ]; then
       echo -n "${end_d},"
       dim=`echo "${dim} + ${d}" | bc`
     done | sed -e 's/\,$//' > ${noisystftdir}/${dataset}_${noisy_type}${noisy_channels}/dim_mag.tmp
-    if [ ! -f ${noisystftdir}/${dataset}_${noisy_type}${noisy_channels}/feats.stftnmag.ark ]; then
-      select-feats `cat ${noisystftdir}/${dataset}_${noisy_type}${noisy_channels}/dim_mag.tmp` \
-	"scp:${noisystftdir}/${dataset}_${noisy_type}${noisy_channels}/feats.scp" \
-	"ark,scp:${noisystftdir}/${dataset}_${noisy_type}${noisy_channels}/feats.stftnmag.ark,${noisystftdir}/${dataset}_${noisy_type}${noisy_channels}/feats.stftnmag.scp"
+    if [ ! -d ${noisystftmagdir}/${dataset}_${noisy_type}${noisy_channels} ]; then
+      stftmagdir=stft/mag_${noisy_type}${noisy_channels}
+      mkdir -p $stftmagdir
+      steps/select_feats.sh `cat ${noisystftdir}/${dataset}_${noisy_type}${noisy_channels}/dim_mag.tmp` \
+	${noisystftdir}/${dataset}_${noisy_type}${noisy_channels} \
+	${noisystftmagdir}/${dataset}_${noisy_type}${noisy_channels} \
+	$expdir/select_feat_log $stftmagdir
     fi
   done
   feats_tr="scp:${noisyfeatdir}/tr05_simu_${noisy_type}${noisy_channels}/feats.scp"
@@ -279,8 +283,8 @@ if [ $stage -le 5 ]; then
   echo "$stftn_tr" > $expdir/cntk_train.stack.stftn
   echo "$stftn_dt" > $expdir/cntk_valid.stack.stftn
 
-  allstftnmag_tr="scp:${noisystftdir}/tr05_simu_${noisy_type}${noisy_channels}/feats.stftnmag.scp"
-  allstftnmag_dt="scp:${noisystftdir}/dt05_simu_${noisy_type}${noisy_channels}/feats.stftnmag.scp"
+  allstftnmag_tr="scp:${noisystftmagdir}/tr05_simu_${noisy_type}${noisy_channels}/feats.scp"
+  allstftnmag_dt="scp:${noisystftmagdir}/dt05_simu_${noisy_type}${noisy_channels}/feats.scp"
   echo "$allstftnmag_tr" > $expdir/cntk_train.stack.stftnmag
   echo "$allstftnmag_dt" > $expdir/cntk_valid.stack.stftnmag
 
