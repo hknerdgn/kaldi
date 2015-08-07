@@ -4,7 +4,7 @@ use strict;
 use POSIX;
 
 # to be run from .. (parent directory)
-my $bin = "../../../src/featbin/compute-fbank-feats";
+my $bin = "compute-fbank-feats";
 
 my $mel_bins = 40;
 if ($ARGV[0] > 0) {
@@ -18,12 +18,12 @@ my $sample_rate = 16000;
 if ($ARGV[2] > 0) {
     $sample_rate = $ARGV[2] + 0;
 }
-my $sscontext = 0; # single side context, total_frames=2*$sscontext+1
+my $numrep = 0; # number of repetitions
 if ($ARGV[3] > 0) {
-    $sscontext = $ARGV[3] + 0;
+    $numrep = $ARGV[3] + 0;
 }
 
-my $frames=2*$sscontext+1;
+my $frames=$numrep; # write this many frames concatenated
 my @melmatrix;
 my $maxhfft=2049; # change this to be larger if you expect a larger half-fft+1 size
 
