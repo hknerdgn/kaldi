@@ -19,13 +19,15 @@ lrps=0.001 #learning rate per sample for cntk
 
 noisy_channels="1_3_4_5_6"
 clean_channels="5"
+order_of_target_ch=4
 
 # options are stftamp, stftphase, fbank, mfcc, labels etc.
 noisy_feat_types=stftamp_stftphase
 clean_feat_types=stftamp_stftphase_labels
 
 # all noisy feats are concatenated separately across frames, clean feats are single frame
-frame_context=7  # one sided context size (for DNN)
+frame_context=0  # one sided context size (for DNN)
+frame_shift=0 # number of frames to shift the features (for LSTM)
 
 noisy_type=ch
 clean_type=reverb_ch
@@ -33,11 +35,10 @@ clean_type=reverb_ch
 
 # CNTK config variables
 start_from_scratch=false # delete experiment directory before starting the experiment
-model=lstmp_2+2layer_enh+ce # {dnn_3layer,dnn_6layer,lstmp-3layer}
+model=lstmp_enh2_ce2 # {dnn_3layer,dnn_6layer,lstmp-3layer}
 modeltype=RNN # or DNN
 memFrames=500000  # this is randomize parameter for cntk, limits the number of frames read
-cntk_config=CNTK2_enh+ce.config
-config_write=CNTK2_write_enh+ce.config
+#config_write=CNTK2_write_enh+ce.config
 nj=20
 njspk=4
 
@@ -52,6 +53,7 @@ addLayerMel=
 # the dimensions for filterbanks to be made within the ndl file
 enhFeatDim=100
 ceFeatDim=40
+twoCeFeatDim=80
 
 # you can give a modelvariety to train a different version of a model
 # for example by changing framelength, input features or hiddenDim variables etc.
@@ -60,6 +62,7 @@ modelvariety=
 train_epochs=50
 epoch=15 # test epoch, use epoch which gives lowest validation error
 lrps=0.001 #learning rate per sample for cntk
+rewrite=true
 
 # wave files obtained from here
 chime3_dir="/local_data2/watanabe/work/201410CHiME3/CHiME3"
@@ -72,9 +75,9 @@ fs=16000
 fbanksize=100
 
 # prevexp for alignment
-prevexp=tri3b_tr05_multi
+prevexp=tri4a_dnn_tr05_multi
 LM=tgpr_5k
-bestdata=enhanced
+bestdata=beamformed_1sec_scwin_ch1_3-6_smbr_i1lats
 
 echo "$0 $@"  # Print the command line for logging
 
@@ -87,13 +90,13 @@ alidir_dt=exp/${prevexp}_${bestdata}_ali_dt05
 declare -A featurevariety
 
 if [ $modeltype == "RNN" ]; then
-  action=TrainRNN # {Train, TrainRNN}
+  action=trainRNN # {train, trainRNN}
   frameMode=false
   truncated=true
   prlUtt=50
   minibatchsize=40
 elif [ $modeltype == "DNN" ]; then
-  action=Train # {Train, TrainRNN}
+  action=train # {train, trainRNN}
   frameMode=true
   truncated=false
   prlUtt=1
@@ -122,22 +125,26 @@ done
 echo "Num noisy channels: ${num_noisy_channels}"
 echo "Num clean channels: ${num_clean_channels}"
 
-num_rep=`echo 2*${frame_context}*${num_noisy_channels}+${num_noisy_channels} | bc`
+num_rep_noisy=`echo 2*${frame_context}*${num_noisy_channels}+${num_noisy_channels} | bc`
+num_rep_clean=`echo 2*${frame_context}*${num_clean_channels}+${num_clean_channels} | bc`
 
-echo "Num repeats: ${num_rep}"
+echo "Num repeats noisy: ${num_rep_noisy}"
+echo "Num repeats clean: ${num_rep_clean}"
 
-enhMelFileName=cntk_config/Mel${enhFeatDim}_${num_rep}.txt
+enhMelFileName=cntk_config/Mel${enhFeatDim}_${num_rep_noisy}.txt
 EnhMelNeedGradient=true
-ceMelFileName=cntk_config/Mel${ceFeatDim}_${num_rep}.txt
+ceMelFileName=cntk_config/Mel${ceFeatDim}_${num_rep_clean}.txt
 CeMelNeedGradient=true
 
 if [ ! -e $enhMelFileName ]; then
-   local/write_kaldi_melmatrix.pl ${enhFeatDim} ${framelength_ms} ${fs} ${num_rep} > $enhMelFileName
+   local/write_kaldi_melmatrix.pl ${enhFeatDim} ${framelength_ms} ${fs} ${num_rep_noisy} > $enhMelFileName
 fi
 
 if [ ! -e $ceMelFileName ]; then
-   local/write_kaldi_melmatrix.pl ${ceFeatDim} ${framelength_ms} ${fs} ${num_rep} > $ceMelFileName
+   local/write_kaldi_melmatrix.pl ${ceFeatDim} ${framelength_ms} ${fs} ${num_rep_clean} > $ceMelFileName
 fi
+
+enhStackFeatDim=`echo "$enhFeatDim * ${num_rep_noisy}" | bc -l`
 
 # write feat configs
 for feat in `echo "${noisy_feat_types}_${clean_feat_types}" | tr "_" " "`; do
@@ -207,7 +214,7 @@ if [ "$start_from_scratch" = true ]; then
 fi
 
 # common data preparation
-if [ $stage -le 0 ]; then
+if [ $stage -le 0 ] && [ $rewrite == "true" ]; then
   local/clean_wsj0_data_prep.sh $chime3_dir/data/WSJ0
   local/wsj_prepare_dict.sh 
   local/simu_noisy_chime3_data_prep.sh $chime3_dir
@@ -222,8 +229,8 @@ for feat in `echo "${noisy_feat_types}" | tr "_" " "`; do
   for ch in `echo $noisy_channels | tr "_" " "`; do
     noisyinput=${noisy_type}${ch}
     for dataset in dt05 et05 tr05; do
-      local/make_feat.sh --cmd \"$train_cmd\" --nj ${nj} --wavdir $wavdir ${dataset}_simu $noisyinput $feat $fvariety $fconf simu 
-      local/make_feat.sh --cmd \"$train_cmd\" --nj ${nj} --wavdir $wavdir ${dataset}_real $noisyinput $feat $fvariety $fconf real
+      local/make_feat.sh --cmd "${train_cmd}" --rewrite ${rewrite} --nj ${nj} --wavdir $wavdir ${dataset}_simu $noisyinput $feat $fvariety $fconf simu 
+      local/make_feat.sh --cmd "${train_cmd}" --rewrite ${rewrite} --nj ${nj} --wavdir $wavdir ${dataset}_real $noisyinput $feat $fvariety $fconf real
       ddir=data/${feat}_${fvariety}
       utils/combine_data.sh ${ddir}/${dataset}_multi_$noisyinput $ddir/${dataset}_simu_$noisyinput $ddir/${dataset}_real_$noisyinput
     done # dataset
@@ -243,8 +250,8 @@ for feat in `echo "${clean_feat_types}" | tr "_" " "`; do
   for ch in `echo $clean_channels | tr "_" " "`; do
     cleaninput=${clean_type}${ch}
     for dataset in dt05 et05 tr05; do
-      local/make_feat.sh --cmd \"$train_cmd\" --nj ${nj} --wavdir $wavdir ${dataset}_simu $cleaninput $feat $fvariety $fconf simu 
-      #local/make_feat.sh --cmd \"$train_cmd\" --nj ${nj} --wavdir $wavdir ${dataset}_real $cleaninput $feat $fvariety $fconf real
+      local/make_feat.sh --cmd "${train_cmd}" --rewrite ${rewrite} --nj ${nj} --wavdir $wavdir ${dataset}_simu $cleaninput $feat $fvariety $fconf simu 
+      #local/make_feat.sh --cmd "${train_cmd}" --rewrite ${rewrite} --nj ${nj} --wavdir $wavdir ${dataset}_real $cleaninput $feat $fvariety $fconf real
       #ddir=data/${feat}_${fvariety}
       #utils/combine_data.sh ${ddir}/${dataset}_multi_$cleaninput $ddir/${dataset}_simu_$cleaninput $ddir/${dataset}_real_$cleaninput
     done # dataset
@@ -304,7 +311,7 @@ for feat in `echo "${noisy_feat_types}" | tr "_" " "`; do
   for dataset in dt05_real et05_real tr05_real dt05_simu et05_simu tr05_simu; do
     # noisy feat stacking
     if [ ! -d data/${feat}_${fvariety}/${dataset}_${noisy_type}${noisy_channels} ]; then
-      echo -n "./steps/append_feats.sh --cmd \"${train_cmd}\" --nj ${njspk} " >  $expdir/stacknoisy_${feat}_${dataset}.sh
+      echo -n "./steps/append_feats.sh --cmd "${train_cmd}" --nj ${njspk} " >  $expdir/stacknoisy_${feat}_${dataset}.sh
       for ch in `echo $noisy_channels | tr "_" " "`; do
 	noisyinput=${noisy_type}${ch}
 	x=${dataset}_${noisyinput}
@@ -332,7 +339,7 @@ if [ ${num_clean_channels} -gt 1 ]; then
     for dataset in dt05_real et05_real tr05_real dt05_simu et05_simu tr05_simu; do
       # clean feat stacking
       if [ ! -d data/${feat}_${fvariety}/${dataset}_${clean_type}${clean_channels} ]; then
-        echo -n "./steps/append_feats.sh --cmd \"${train_cmd}\" --nj ${njspk} " >  $expdir/stackclean_${feat}_${dataset}.sh
+        echo -n "./steps/append_feats.sh --cmd "${train_cmd}" --nj ${njspk} " >  $expdir/stackclean_${feat}_${dataset}.sh
         for ch in `echo $clean_channels | tr "_" " "`; do
           cleaninput=${clean_type}${ch}
           x=${dataset}_${cleaninput}
@@ -359,7 +366,6 @@ fi # stage -le 5
 if [ $stage -le 6 ] ; then
 echo "Running stage 6: training with CNTK"
 
-frame_shift=5 # number of frames to shift the features (for LSTM)
 ndlfile=$expdir/${model}.ndl
 mkdir -p $expdir
 ## start writing CNTK.config
@@ -376,7 +382,9 @@ initModel=${expdir}/${initModel}
 addLayerMel=${expdir}/${addLayerMel}
 
 enhFeatDim=$enhFeatDim
+enhStackFeatDim=$enhStackFeatDim
 ceFeatDim=$ceFeatDim
+twoCeFeatDim=$twoCeFeatDim
 enhMelFileName=$enhMelFileName
 ceMelFileName=$ceMelFileName
 EnhMelNeedGradient=$EnhMelNeedGradient
@@ -470,6 +478,8 @@ for feat in `echo "${noisy_feat_types}" | tr "_" " "`; do
   fvariety=${featurevariety[$feat]}
   feats_tr=`cat $expdir/cntk_train.${noisy_type}${noisy_channels}.${feat}_${fvariety}`
   feats_dt=`cat $expdir/cntk_valid.${noisy_type}${noisy_channels}.${feat}_${fvariety}`
+  feats_tr_f=`echo $feats_tr | sed s/scp://`
+  feats_dt_f=`echo $feats_dt | sed s/scp://`
   baseFeatDim=`feat-to-dim $feats_tr -`
   featDim=`echo "$baseFeatDim * (2 * $frame_context + 1)"|bc`
 
@@ -483,7 +493,7 @@ EOF
       noisy${feat}=[
     	dim=$featDim
         scpFile=$expdir/cntk_train.counts
-	rx=$feats_tr
+	rx=$feats_tr_f
         featureTransform=NO_FEATURE_TRANSFORM
       ]
 EOF
@@ -491,7 +501,7 @@ EOF
       noisy${feat}=[
     	dim=$featDim
         scpFile=$expdir/cntk_valid.counts
-	rx=$feats_dt
+	rx=$feats_dt_f
         featureTransform=NO_FEATURE_TRANSFORM
       ]
 EOF
@@ -502,8 +512,16 @@ for feat in `echo "${clean_feat_types}" | tr "_" " "`; do
   fvariety=${featurevariety[$feat]}
   feats_tr=`cat $expdir/cntk_train.${clean_type}${clean_channels}.${feat}_${fvariety}`
   feats_dt=`cat $expdir/cntk_valid.${clean_type}${clean_channels}.${feat}_${fvariety}`
+  feats_tr_f=`echo $feats_tr | sed s/scp://`
+  feats_dt_f=`echo $feats_dt | sed s/scp://`
   baseFeatDim=`feat-to-dim $feats_tr -`
   featDim=`echo "$baseFeatDim * (2 * $frame_context + 1)"|bc`
+  if [ $feat == "stftphase" ]; then
+    targetStart=`echo "$baseFeatDim * $num_noisy_channels * $frame_context + $baseFeatDim * ($order_of_target_ch - 1)" | bc -l`
+  cat << EOF >> $expdir/CNTK.config.begin
+    targetStart=${targetStart}
+EOF
+  fi
   cat << EOF >> $expdir/CNTK.config.begin
     clean${feat}Dim=${featDim}
 EOF
@@ -511,7 +529,7 @@ EOF
       clean${feat}=[
     	dim=$featDim
         scpFile=$expdir/cntk_train.counts
-	rx=$feats_tr
+	rx=$feats_tr_f
         featureTransform=NO_FEATURE_TRANSFORM
       ]
 EOF
@@ -519,7 +537,7 @@ EOF
       clean${feat}=[
     	dim=$featDim
         scpFile=$expdir/cntk_valid.counts
-	rx=$feats_dt
+	rx=$feats_dt_f
         featureTransform=NO_FEATURE_TRANSFORM
       ]
 EOF
@@ -528,6 +546,9 @@ EOF
   for (( c=0; c<labelDim; c++)) ; do
     echo $c
   done >$expdir/cntk_label.mapping
+  cat << EOF >> $expdir/CNTK.config.begin
+    labelDim=${labelDim}
+EOF
   cat << EOF >> $expdir/CNTK.train.reader
       labels=[
         mlfFile=$expdir/cntk_train.${clean_type}.${feat}
