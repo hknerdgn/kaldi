@@ -132,9 +132,9 @@ echo "Num repeats noisy: ${num_rep_noisy}"
 echo "Num repeats clean: ${num_rep_clean}"
 
 enhMelFileName=cntk_config/Mel${enhFeatDim}_${num_rep_noisy}.txt
-EnhMelNeedGradient=true
+EnhMelNeedGradient=false
 ceMelFileName=cntk_config/Mel${ceFeatDim}_${num_rep_clean}.txt
-CeMelNeedGradient=true
+CeMelNeedGradient=false
 
 if [ ! -e $enhMelFileName ]; then
    local/write_kaldi_melmatrix.pl ${enhFeatDim} ${framelength_ms} ${fs} ${num_rep_noisy} > $enhMelFileName
@@ -477,9 +477,7 @@ EOF
 for feat in `echo "${noisy_feat_types}" | tr "_" " "`; do
   fvariety=${featurevariety[$feat]}
   feats_tr=`cat $expdir/cntk_train.${noisy_type}${noisy_channels}.${feat}_${fvariety}`
-  feats_dt=`cat $expdir/cntk_valid.${noisy_type}${noisy_channels}.${feat}_${fvariety}`
-  feats_tr_f=`echo $feats_tr | sed s/scp://`
-  feats_dt_f=`echo $feats_dt | sed s/scp://`
+  #feats_dt=`cat $expdir/cntk_valid.${noisy_type}${noisy_channels}.${feat}_${fvariety}`
   baseFeatDim=`feat-to-dim $feats_tr -`
   featDim=`echo "$baseFeatDim * (2 * $frame_context + 1)"|bc`
 
@@ -493,7 +491,7 @@ EOF
       noisy${feat}=[
     	dim=$featDim
         scpFile=$expdir/cntk_train.counts
-	rx=$feats_tr_f
+	rx=$expdir/cntk_train.${noisy_type}${noisy_channels}.${feat}_${fvariety}
         featureTransform=NO_FEATURE_TRANSFORM
       ]
 EOF
@@ -501,7 +499,7 @@ EOF
       noisy${feat}=[
     	dim=$featDim
         scpFile=$expdir/cntk_valid.counts
-	rx=$feats_dt_f
+	rx=$expdir/cntk_valid.${noisy_type}${noisy_channels}.${feat}_${fvariety}
         featureTransform=NO_FEATURE_TRANSFORM
       ]
 EOF
@@ -511,9 +509,7 @@ for feat in `echo "${clean_feat_types}" | tr "_" " "`; do
   if [ $feat != "labels" ]; then
   fvariety=${featurevariety[$feat]}
   feats_tr=`cat $expdir/cntk_train.${clean_type}${clean_channels}.${feat}_${fvariety}`
-  feats_dt=`cat $expdir/cntk_valid.${clean_type}${clean_channels}.${feat}_${fvariety}`
-  feats_tr_f=`echo $feats_tr | sed s/scp://`
-  feats_dt_f=`echo $feats_dt | sed s/scp://`
+  #feats_dt=`cat $expdir/cntk_valid.${clean_type}${clean_channels}.${feat}_${fvariety}`
   baseFeatDim=`feat-to-dim $feats_tr -`
   featDim=`echo "$baseFeatDim * (2 * $frame_context + 1)"|bc`
   if [ $feat == "stftphase" ]; then
@@ -529,7 +525,7 @@ EOF
       clean${feat}=[
     	dim=$featDim
         scpFile=$expdir/cntk_train.counts
-	rx=$feats_tr_f
+	rx=$expdir/cntk_train.${clean_type}${clean_channels}.${feat}_${fvariety}
         featureTransform=NO_FEATURE_TRANSFORM
       ]
 EOF
@@ -537,7 +533,7 @@ EOF
       clean${feat}=[
     	dim=$featDim
         scpFile=$expdir/cntk_valid.counts
-	rx=$feats_dt_f
+	rx=$expdir/cntk_valid.${clean_type}${clean_channels}.${feat}_${fvariety}
         featureTransform=NO_FEATURE_TRANSFORM
       ]
 EOF

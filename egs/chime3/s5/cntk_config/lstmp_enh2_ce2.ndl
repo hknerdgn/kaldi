@@ -259,10 +259,12 @@ ndlCreateNetwork_LSTMP=[
 
     noisystftPow=ElementTimes(noisystftampSc,noisystftampSc)
     enhFeatures=Log(Times(EnhMelMatrix, noisystftPow))
-    enhFeatNorm = MeanVarNorm(enhFeatures)
+    enhFeaturesMean=Mean(enhFeatures, needGradient=false)
+    enhFeaturesInvStdDev=InvStdDev(enhFeatures, needGradient=false)
+    enhNormFeatures=DiagTimes(enhFeaturesInvStdDev, Minus(enhFeatures, enhFeaturesMean))
 
     # layer 1
-    LSTMenh1 = LSTMPComponent(enhStackFeatDim, enhHiddenDim, enhCellDim, enhFeatNorm);
+    LSTMenh1 = LSTMPComponent(enhStackFeatDim, enhHiddenDim, enhCellDim, enhNormFeatures);
     # layer 2 
     LSTMenh2 = LSTMPComponent(enhHiddenDim, enhHiddenDim, enhCellDim, LSTMenh1);
 
@@ -275,8 +277,10 @@ ndlCreateNetwork_LSTMP=[
     ceNoisyFeatures=Times(CEMelMatrix, targetchNoisyPow)
     ceMaskedNoisyFeatures=Times(CEMelMatrix, MaskedNoisyPow)
  
-    ceNormNoisyFeatures=MeanVarNorm(ceNoisyFeatures)
-    ceNormMaskedNoisyFeatures=PerDimMeanVarNormalization(ceMaskedNoisyFeatures, ceNormNoisyFeatures.xMean, ceNormNoisyFeatures.xStdDev)
+    ceNoisyFeaturesMean=Mean(ceNoisyFeatures, needGradient=false)
+    ceNoisyFeaturesInvStdDev=InvStdDev(ceNoisyFeatures, needGradient=false)
+    ceNormNoisyFeatures=DiagTimes(ceNoisyFeaturesInvStdDev, Minus(ceNoisyFeatures, ceNoisyFeaturesMean))
+    ceNormMaskedNoisyFeatures=DiagTimes(ceNoisyFeaturesInvStdDev, Minus(ceMaskedNoisyFeatures, ceNoisyFeaturesMean))
     ceFeatures=RowStack(ceNormNoisyFeatures, ceNormMaskedNoisyFeatures)
 
     # layer 1
