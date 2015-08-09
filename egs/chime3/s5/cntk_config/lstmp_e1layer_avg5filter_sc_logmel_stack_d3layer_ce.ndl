@@ -76,8 +76,10 @@ ndlCreateNetwork_LSTMP=[
     cellDim=$cellDim$
     hiddenDim=$hiddenDim$
     labelDim=$labelDim$
+    allstftnmagDim=$allstftnmagDim$
 
     melDim=$melDim$
+    twicemelDim=$twicemelDim$
 
     features=Input(FeatDim, tag=feature)
     scalespec=constant(0.00001)
@@ -88,7 +90,10 @@ ndlCreateNetwork_LSTMP=[
 
     stftnMag = Scale(scalespec,RowSlice(0, hstftDim, stftn));
     stftnPhase = RowSlice(hstftDim, hstftDim, stftn);
-			       			       
+			       	
+    allstftnmag = Input(allstftnmagDim, tag=feature)
+    scaledallstftnmag = Scale(scalespec, allstftnmag)
+		       
     feashift=RowSlice(RowSliceStart, baseFeatDim, features);      # shift 5 frames right (x_{t+5} -> x_{t} )
     featNorm = MeanVarNorm(feashift)
 
@@ -97,10 +102,23 @@ ndlCreateNetwork_LSTMP=[
     # layer 1
     LSTMoutput1 = LSTMPComponent(baseFeatDim, hiddenDim, cellDim, featNorm);
 
-    W = Parameter(hstftDim, hiddenDim, init=uniform, initValueScale=1);
-    b = Parameter(hstftDim, init=fixedvalue, value=0);
-    Mask = Sigmoid(Plus(Times(W, LSTMoutput1), b));
-    MaskedNoisy = ElementTimes(Mask, stftnMag)
+    W = Parameter(allstftnmagDim, hiddenDim, init=uniform, initValueScale=1);
+    b = Parameter(allstftnmagDim, init=fixedvalue, value=0);
+    Filter = Sigmoid(Plus(Times(W, LSTMoutput1), b));
+
+    # averaging filter (5 frames), 0.2 scaling means 1/5
+    FilterSummed = Plus(Filter, Plus(Delay(hstftDim, Filter, delayTime=1), Plus(Delay(hstftDim, Filter, delayTime=2), Plus(Delay(hstftDim, Filter, delayTime=3), Delay(hstftDim, Filter, delayTime=4)))))
+    FilterAvg = Scale(constant(0.2), FilterSummed)
+    FilteredNoisy = ElementTimes(FilterAvg, scaledallstftnmag)
+
+    MaskedNoisy_1 = RowSlice(0,   hstftDim, FilteredNoisy)
+    MaskedNoisy_2 = RowSlice(257, hstftDim, FilteredNoisy)
+    MaskedNoisy_3 = RowSlice(514, hstftDim, FilteredNoisy)
+    MaskedNoisy_4 = RowSlice(771, hstftDim, FilteredNoisy)
+    MaskedNoisy_5 = RowSlice(928, hstftDim, FilteredNoisy)
+    
+    # Filter and Sum
+    MaskedNoisy = Plus(MaskedNoisy_1, Plus(MaskedNoisy_2, Plus(MaskedNoisy_3, Plus(MaskedNoisy_4, MaskedNoisy_5))))
     MaskedNoisySquare = ElementTimes(MaskedNoisy, MaskedNoisy)
     LogMelFeat = Log(Times(MelMatrix, MaskedNoisySquare))
 
@@ -112,11 +130,13 @@ ndlCreateNetwork_LSTMP=[
     meanVal=Mean(LogMelNoisyFeat, needGradient=false)
     invstdVal=InvStdDev(LogMelNoisyFeat, needGradient=false)
     NormLogMelNoisyFeat=PerDimMeanVarNormalization(LogMelNoisyFeat, meanVal, invstdVal)
-#    NormLogMelFeat=Minus(LogMelFeat, meanVal)
     NormLogMelFeat=DiagTimes(invstdVal, Minus(LogMelFeat, meanVal))
 
+    # stck original and enhanced
+    StackNormLogMelFeat = RowStack(NormLogMelFeat, NormLogMelNoisyFeat)
+
     # layer d-1
-    LSTMoutputd1 = LSTMPComponent(melDim, hiddenDim, cellDim, NormLogMelFeat);
+    LSTMoutputd1 = LSTMPComponent(twicemelDim, hiddenDim, cellDim, StackNormLogMelFeat);
     # layer d-2 
     LSTMoutputd2 = LSTMPComponent(hiddenDim, hiddenDim, cellDim, LSTMoutputd1);
     # layer d-3 

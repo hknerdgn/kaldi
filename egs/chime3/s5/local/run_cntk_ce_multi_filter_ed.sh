@@ -10,7 +10,7 @@
 . ./path.sh
 
 num_threads=1
-device=0
+device=1
 train_epochs=50
 epoch=30
 stage=0
@@ -318,7 +318,7 @@ if [ $stage -le 6 ]; then
       done
       echo -n "${noisystftdir}/${dataset}_${noisy_type}${noisy_channels} " >> $expdir/stack_stft_${dataset}.sh
       echo -n "$expdir/append_stft_${dataset}_${noisy_type}${noisy_channels} " >> $expdir/stack_stft_${dataset}.sh
-      echo -n "stft" >> $expdir/stack_stft_${dataset}.sh
+      echo -n "stft/abs_phs/${noisy_type}" >> $expdir/stack_stft_${dataset}.sh
       chmod +x $expdir/stack_stft_${dataset}.sh
       $expdir/stack_stft_${dataset}.sh
     fi
@@ -333,7 +333,7 @@ if [ $stage -le 6 ]; then
       dim=`echo "${dim} + ${d}" | bc`
     done | sed -e 's/\,$//' > ${noisystftdir}/${dataset}_${noisy_type}${noisy_channels}/dim_mag.tmp
     if [ ! -d ${noisystftmagdir}/${dataset}_${noisy_type}${noisy_channels} ]; then
-      stftmagdir=stft/mag_${noisy_type}${noisy_channels}
+      stftmagdir=stft/mag/${noisy_type}${noisy_channels}
       mkdir -p $stftmagdir
       steps/select_feats.sh `cat ${noisystftdir}/${dataset}_${noisy_type}${noisy_channels}/dim_mag.tmp` \
 	${noisystftdir}/${dataset}_${noisy_type}${noisy_channels} \
@@ -370,14 +370,14 @@ if [ $stage -le 6 ]; then
   if [ ${trsubsetsize} -gt 0 ]; then
     utils/subset_data_dir.sh ${noisystftdir}/tr05_multi_${noisy_type}${noisy_channels} ${trsubsetsize} \
       ${noisystftdir}/tr05_multi_${noisy_type}${noisy_channels}_${trsubsetsize}
-    stftn_tr="scp:${noisystftdir}/tr05_multi_${noisyinput}_${trsubsetsize}/feats.scp"
+    stftn_tr="scp:${noisystftdir}/tr05_multi_${noisy_type}_${trsubsetsize}/feats.scp"
   else
     stftn_tr="scp:${noisystftdir}/tr05_multi_${noisy_type}${noisy_channels}/feats.scp"
   fi
   if [ ${dtsubsetsize} -gt 0 ]; then
     utils/subset_data_dir.sh ${noisystftdir}/dt05_multi_${noisy_type}${noisy_channels} ${dtsubsetsize} \
       ${noisystftdir}/dt05_multi_${noisy_type}${noisy_channels}_${dtsubsetsize}
-    stftn_dt="scp:${noisystftdir}/dt05_multi_${noisyinput}_${dtsubsetsize}/feats.scp"
+    stftn_dt="scp:${noisystftdir}/dt05_multi_${noisy_type}${noisy_channels}_${dtsubsetsize}/feats.scp"
   else
     stftn_dt="scp:${noisystftdir}/dt05_multi_${noisy_type}${noisy_channels}/feats.scp"
   fi
@@ -391,14 +391,14 @@ if [ $stage -le 6 ]; then
   if [ ${trsubsetsize} -gt 0 ]; then
     utils/subset_data_dir.sh ${noisystftmagdir}/tr05_multi_${noisy_type}${noisy_channels} ${trsubsetsize} \
       ${noisystftmagdir}/tr05_multi_${noisy_type}${noisy_channels}_${trsubsetsize}
-    allstftnmag_tr="scp:${noisystftdir}/tr05_multi_${noisyinput}_${trsubsetsize}/feats.scp"
+    allstftnmag_tr="scp:${noisystftmagdir}/tr05_multi_${noisy_type}${noisy_channels}_${trsubsetsize}/feats.scp"
   else
     allstftnmag_tr="scp:${noisystftmagdir}/tr05_multi_${noisy_type}${noisy_channels}/feats.scp"
   fi
   if [ ${dtsubsetsize} -gt 0 ]; then
     utils/subset_data_dir.sh ${noisystftmagdir}/dt05_multi_${noisy_type}${noisy_channels} ${dtsubsetsize} \
       ${noisystftmagdir}/dt05_multi_${noisy_type}${noisy_channels}_${dtsubsetsize}
-    allstftnmag_dt="scp:${noisystftdir}/dt05_multi_${noisyinput}_${dtsubsetsize}/feats.scp"
+    allstftnmag_dt="scp:${noisystftmagdir}/dt05_multi_${noisy_type}${noisy_channels}_${dtsubsetsize}/feats.scp"
   else
     allstftnmag_dt="scp:${noisystftmagdir}/dt05_multi_${noisy_type}${noisy_channels}/feats.scp"
   fi
@@ -436,6 +436,8 @@ stftDim=`feat-to-dim $stftn_tr -`
 hstftDim=`echo $stftDim/2|bc`
 melDim=40
 twicemelDim=`echo "$melDim * 2 " | bc`
+allstftnmag_tr=`cat $expdir/cntk_train.stftnmag`
+allstftnmagDim=`feat-to-dim $allstftnmag_tr -`
 
 # get mel matrix, 25: shift (ms), 16000 (sampling), 1 ((2 times number of contexts) + 1) times number of channels
 local/write_kaldi_melmatrix.pl $melDim 25 16000 1 > $expdir/mel$melDim.mat
@@ -481,6 +483,7 @@ lrps=${lrps}
 trainEpochs=${train_epochs}
 labelDim=${labelDim}
 labelMapping=${expdir}/cntk_label.mapping
+allstftnmagDim=${allstftnmagDim}
 
 melDim=${melDim}
 twicemelDim=${twicemelDim}
@@ -493,12 +496,14 @@ numThreads=$num_threads
 inputCounts=${expdir}/cntk_train.counts
 inputFeats=${expdir}/cntk_train.feats
 inputStftn=${expdir}/cntk_train.stftn
+inputAllStftnMag=${expdir}/cntk_train.stftnmag
 inputStftc=${expdir}/cntk_train.stftc
 inputLabels=${expdir}/cntk_train.labels
 
 cvInputCounts=${expdir}/cntk_valid.counts
 cvInputFeats=${expdir}/cntk_valid.feats
 cvInputStftn=${expdir}/cntk_valid.stftn
+cvInputAllStftnMag=${expdir}/cntk_valid.stftnmag
 cvInputStftc=${expdir}/cntk_valid.stftc
 cvInputLabels=${expdir}/cntk_valid.labels
 EOF

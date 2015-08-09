@@ -8,6 +8,10 @@ exit;
 wavdir=/export/ws15-ffs-data/corpora/chime3/CHiME3/data/audio/16kHz
 
 # train and apply using cntk dnn model
+
+local/run_cntk_ce_multi_ed.sh --stage 5 --action TrainLSTM --cntk_config CNTK2_lstm_ce_ed.config --model lstmp_e3layer_sc_log_d3layer_ce --lrps 0.001 --dtsubsetsize 0 --trsubsetsize 0
+exit;
+
 local/run_cntk_ce_multi_ed.sh --stage 7 --action TrainLSTM --config CNTK2_lstm_ce_ed.config --model lstmp_e3layer_sc_log_d3layer_ce.ndl
 exit;
 
@@ -88,3 +92,7 @@ local/run_cntk_enhance.sh \
  --cntk_config CNTK2_lstm_enh.config \
  --epoch 20
 exit;
+local/run_cntk_ce_multi_ed.sh --stage 7 --action TrainLSTM --cntk_config CNTK2_lstm_ce_ed.config --model lstmp_e3layer_sc_log_d3layer_ce --lrps 0.0001 --dtsubsetsize 0 --trsubsetsize 0
+local/run_cntk_ce_multi_ed.sh --stage 7 --action TrainLSTM --cntk_config CNTK2_lstm_ce_ed.config --model lstmp_e1layer_sc_logmel_d3layer_ce --lrps 0.0001
+local/run_cntk_ce_multi_filter_ed.sh --stage 5 --action TrainLSTM --cntk_config CNTK2_lstm_ce_ed_filter.config --model lstmp_e1layer_filter_sc_logmel_stack_d3layer_ce --lrps 0.0001
+local/run_cntk_ce_multi_filter_ed.sh --stage 7 --action TrainLSTM --cntk_config CNTK2_lstm_ce_ed_filter.config --model lstmp_e1layer_avg5filter_sc_logmel_stack_d3layer_ce --device 2 --lrps 0.0001

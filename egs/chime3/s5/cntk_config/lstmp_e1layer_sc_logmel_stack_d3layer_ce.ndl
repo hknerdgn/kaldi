@@ -78,6 +78,7 @@ ndlCreateNetwork_LSTMP=[
     labelDim=$labelDim$
 
     melDim=$melDim$
+    twicemelDim=$twicemelDim$
 
     features=Input(FeatDim, tag=feature)
     scalespec=constant(0.00001)
@@ -112,11 +113,13 @@ ndlCreateNetwork_LSTMP=[
     meanVal=Mean(LogMelNoisyFeat, needGradient=false)
     invstdVal=InvStdDev(LogMelNoisyFeat, needGradient=false)
     NormLogMelNoisyFeat=PerDimMeanVarNormalization(LogMelNoisyFeat, meanVal, invstdVal)
-#    NormLogMelFeat=Minus(LogMelFeat, meanVal)
     NormLogMelFeat=DiagTimes(invstdVal, Minus(LogMelFeat, meanVal))
 
+    # stck original and enhanced
+    StackNormLogMelFeat = RowStack(NormLogMelFeat, NormLogMelNoisyFeat)
+
     # layer d-1
-    LSTMoutputd1 = LSTMPComponent(melDim, hiddenDim, cellDim, NormLogMelFeat);
+    LSTMoutputd1 = LSTMPComponent(twicemelDim, hiddenDim, cellDim, StackNormLogMelFeat);
     # layer d-2 
     LSTMoutputd2 = LSTMPComponent(hiddenDim, hiddenDim, cellDim, LSTMoutputd1);
     # layer d-3 
