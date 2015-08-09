@@ -96,3 +96,4 @@ local/run_cntk_ce_multi_ed.sh --stage 7 --action TrainLSTM --cntk_config CNTK2_l
 local/run_cntk_ce_multi_ed.sh --stage 7 --action TrainLSTM --cntk_config CNTK2_lstm_ce_ed.config --model lstmp_e1layer_sc_logmel_d3layer_ce --lrps 0.0001
 local/run_cntk_ce_multi_filter_ed.sh --stage 5 --action TrainLSTM --cntk_config CNTK2_lstm_ce_ed_filter.config --model lstmp_e1layer_filter_sc_logmel_stack_d3layer_ce --lrps 0.0001
 local/run_cntk_ce_multi_filter_ed.sh --stage 7 --action TrainLSTM --cntk_config CNTK2_lstm_ce_ed_filter.config --model lstmp_e1layer_avg5filter_sc_logmel_stack_d3layer_ce --device 2 --lrps 0.0001
+local/run_cntk_ce_multi_complex_filter_ed.sh --stage 5 --action TrainLSTM --cntk_config CNTK2_lstm_ce_ed_complex_filter.config --model lstmp_e1layer_cmpavg3filter_sc_logmel_stack_d3layer_ce --device 1 --lrps 0.0001
