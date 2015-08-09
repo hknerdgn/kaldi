@@ -18,6 +18,8 @@ echo "$0 $@"  # Print the command line for logging
 if [ -f path.sh ]; then . ./path.sh; fi
 . parse_options.sh || exit 1;
 
+set -x
+
 if [ $# != 6 ]; then
    echo "usage: make_feat.sh [options] <dataset> <inputdir> <ftype> <fvariety> <fconf> <realsimu>";
    echo "options: "
@@ -40,7 +42,7 @@ fi
   x=${dset}_${input}
   if [ ! -d $featlnkdir/$x ] || [ ! -e $featrawdir/raw_${ftype}_${x}.1.ark ] || [ $rewrite == "true" ]; then
     mkdir -p $featlnkdir
-    if [ ! -d data/$x ]; then
+    if [ ! -d data/$x ] || [ $rewrite == "true" ]; then
       if [ $realsimu == "real" ]; then
         local/real_enhan_chime3_data_prep.sh ${input} ${wavdir}/${input}
       elif [ $realsimu == "simu" ]; then
