@@ -109,22 +109,22 @@ ndlCreateNetwork_LSTMP=[
     # get single channel, (adaptive) filter-and-sum beamformer
     W = Parameter(hstftDim, hiddenDim, init=uniform, initValueScale=1);
     b = Parameter(hstftDim, init=fixedvalue, value=0);
-    FirstMask = Sigmoid(Plus(Times(W, LSTMoutput3), b));
-    FirstMaskedNoisy = ElementTimes(FirstMask, stftnMag)
+    Filter = Sigmoid(Plus(Times(W, LSTMoutput3), b));
 
-    # if we use delay technique in LSTM, we have to use context...
-    # AllMaskedNoisyshift=RowSlice(RowSliceStart, baseFeatDim, features);      # shift 5 frames right (x_{t+5} -> x_{t} )
+    # averaging filter (5 frames), 0.2 scaline means 1/5
+    inv_num_filters=constant(0.2)
+
+    FilterSummed = Plus(Filter, Plus(Delay(hstftDim, Filter, delayTime=1), Plus(Delay(hstftDim, Filter, delayTime=2), Plus(Delay(hstftDim, Filter, delayTime=3), Delay(hstftDim, Filter, delayTime=4)))))
+    FilterAvg = Scale(inv_num_filters, FilterSummed)
+
+    FilteredNoisy = ElementTimes(FilterAvg, stftnMag)
 
     # layer d-1
-    LSTMoutputd1 = LSTMPComponent(hstftDim, hiddenDim, cellDim, FirstMaskedNoisy);
-    # layer d-2 
-    LSTMoutputd2 = LSTMPComponent(hiddenDim, hiddenDim, cellDim, LSTMoutputd1);
-    # layer d-3 
-    LSTMoutputd3 = LSTMPComponent(hiddenDim, hiddenDim, cellDim, LSTMoutputd2);
+    LSTMoutputd1 = LSTMPComponent(hstftDim, hiddenDim, cellDim, FilteredNoisy);
 
     Wd = Parameter(hstftDim, hiddenDim, init=uniform, initValueScale=1);
     bd = Parameter(hstftDim, init=fixedvalue, value=0);
-    Mask = Sigmoid(Plus(Times(Wd, LSTMoutputd3), bd));
+    Mask = Sigmoid(Plus(Times(Wd, LSTMoutputd1), bd));
 
     MaskedNoisy = ElementTimes(Mask, stftnMag)
     SmaskedNoisy = Scale(iscalespec, MaskedNoisy)

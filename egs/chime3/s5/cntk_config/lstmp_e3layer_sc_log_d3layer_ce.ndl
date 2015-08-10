@@ -75,24 +75,18 @@ ndlCreateNetwork_LSTMP=[
     hstftDim=$hstftDim$
     cellDim=$cellDim$
     hiddenDim=$hiddenDim$
-    AllhstftDim=$AllhstftDim$
+    labelDim=$labelDim$
 
     features=Input(FeatDim, tag=feature)
     scalespec=constant(0.00001)
     One=constant(1,rows=1,cols=1)
     iscalespec=constant(100000)
     stftn=InputValue(stftDim, tag=feature)
-    stftc=InputValue(stftDim, tag=feature)
+    labels=Input(labelDim, tag=label)
 
     stftnMag = Scale(scalespec,RowSlice(0, hstftDim, stftn));
     stftnPhase = RowSlice(hstftDim, hstftDim, stftn);
-
-    stftcMag = Scale(scalespec,RowSlice(0, hstftDim, stftc));
-    stftcPhase = RowSlice(hstftDim, hstftDim, stftc);
 			       			       
-    AllstftnMag = InputValue(AllhstftDim, tag=feature);
-    ScaledAllstftnMag = Scale(scalespec, AllstftnMag);
-	
     feashift=RowSlice(RowSliceStart, baseFeatDim, features);      # shift 5 frames right (x_{t+5} -> x_{t} )
 
 
@@ -106,38 +100,25 @@ ndlCreateNetwork_LSTMP=[
     # layer 3 
     LSTMoutput3 = LSTMPComponent(hiddenDim, hiddenDim, cellDim, LSTMoutput2);
 
-    # get single channel, (adaptive) filter-and-sum beamformer
     W = Parameter(hstftDim, hiddenDim, init=uniform, initValueScale=1);
     b = Parameter(hstftDim, init=fixedvalue, value=0);
-    FirstMask = Sigmoid(Plus(Times(W, LSTMoutput3), b));
-    FirstMaskedNoisy = ElementTimes(FirstMask, stftnMag)
-
-    # if we use delay technique in LSTM, we have to use context...
-    # AllMaskedNoisyshift=RowSlice(RowSliceStart, baseFeatDim, features);      # shift 5 frames right (x_{t+5} -> x_{t} )
+    Mask = Sigmoid(Plus(Times(W, LSTMoutput3), b));
+    LogMaskedNoisy = Log(ElementTimes(Mask, stftnMag))
 
     # layer d-1
-    LSTMoutputd1 = LSTMPComponent(hstftDim, hiddenDim, cellDim, FirstMaskedNoisy);
+    LSTMoutputd1 = LSTMPComponent(hstftDim, hiddenDim, cellDim, LogMaskedNoisy);
     # layer d-2 
     LSTMoutputd2 = LSTMPComponent(hiddenDim, hiddenDim, cellDim, LSTMoutputd1);
     # layer d-3 
     LSTMoutputd3 = LSTMPComponent(hiddenDim, hiddenDim, cellDim, LSTMoutputd2);
 
-    Wd = Parameter(hstftDim, hiddenDim, init=uniform, initValueScale=1);
-    bd = Parameter(hstftDim, init=fixedvalue, value=0);
-    Mask = Sigmoid(Plus(Times(Wd, LSTMoutputd3), bd));
+    Wd = Parameter(labelDim, hiddenDim, init=uniform, initValueScale=1);
+    bd = Parameter(labelDim, init=fixedvalue, value=0);
+    LSTMoutputW = Plus(Times(Wd, LSTMoutputd3), bd);
 
-    MaskedNoisy = ElementTimes(Mask, stftnMag)
-    SmaskedNoisy = Scale(iscalespec, MaskedNoisy)
-    MaskedNoisywithPhase = RowStack(SmaskedNoisy, stftnPhase, tag=output)
+    cr = CrossEntropyWithSoftmax(labels, LSTMoutputW,tag=Criteria);
+    Err = ErrorPrediction(labels,LSTMoutputW,tag=Eval);
     
-    IdealMagMask = ElementDivide(stftcMag,stftnMag)
-    IdealMagMaskLim = MinSc(One,IdealMagMask)
-    IdealMagMaskLimNoisy = ElementTimes(IdealMagMaskLim, stftnMag)
-    
-    MSE = SquareError(MaskedNoisy, stftcMag, tag=criteria)
-    MaskSum = SumElements(Mask, tag=eval)
-    NoisyMSE = SquareError(stftnMag, stftcMag, tag=eval)
-    BestMSE = SquareError(IdealMagMaskLimNoisy, stftcMag, tag=eval)
-    #CleanSum = SumElements(stftcMag, tag=eval)
-    #NoisySum = SumElements(stftnMag, tag=eval)
+    logPrior = LogPrior(labels)	 
+    ScaledLogLikelihood=Minus(LSTMoutputW,logPrior,tag=Output)
 ]
