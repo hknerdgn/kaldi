@@ -1,0 +1,180 @@
+load=ndlMacroDefine
+run=ndlCreateNetwork_LSTMP
+
+ndlMacroDefine=[
+
+    LSTMPComponent(inputDim, outputDim, cellDim, inputx)
+    {
+        Wxo = Parameter(cellDim, inputDim, init=uniform, initValueScale=1);
+        Wxi = Parameter(cellDim, inputDim, init=uniform, initValueScale=1);
+        Wxf = Parameter(cellDim, inputDim, init=uniform, initValueScale=1);
+        Wxc = Parameter(cellDim, inputDim, init=uniform, initValueScale=1);
+
+        bo = Parameter(cellDim, init=fixedValue, value=0.0);
+        bc = Parameter(cellDim, init=fixedValue, value=0.0);
+        bi = Parameter(cellDim, init=fixedValue, value=0.0);
+        bf = Parameter(cellDim, init=fixedValue, value=0.0);
+
+        Whi = Parameter(cellDim, outputDim, init=uniform, initValueScale=1);
+
+        Wci = Parameter(cellDim, init=uniform, initValueScale=1);
+
+
+        Whf = Parameter(cellDim, outputDim, init=uniform, initValueScale=1);
+        Wcf = Parameter(cellDim, init=uniform, initValueScale=1);
+        Who = Parameter(cellDim, outputDim, init=uniform, initValueScale=1);
+        Wco = Parameter(cellDim, init=uniform, initValueScale=1);
+        Whc = Parameter(cellDim, outputDim, init=uniform, initValueScale=1);
+
+        dh = Delay(outputDim, output, delayTime=1);
+        dc = Delay(cellDim, ct, delayTime=1);
+
+
+        Wxix = Times(Wxi, inputx);
+        Whidh = Times(Whi, dh);
+        Wcidc = DiagTimes(Wci, dc);
+
+        it = Sigmoid (Plus ( Plus (Plus (Wxix, bi), Whidh), Wcidc));
+
+        Wxcx = Times(Wxc, inputx);
+        Whcdh = Times(Whc, dh);
+        bit = ElementTimes(it, Tanh( Plus(Wxcx, Plus(Whcdh, bc))));
+
+        Wxfx = Times(Wxf, inputx);
+        Whfdh = Times(Whf, dh);
+        Wcfdc = DiagTimes(Wcf, dc);
+
+        ft = Sigmoid( Plus (Plus (Plus(Wxfx, bf), Whfdh), Wcfdc));
+
+        bft = ElementTimes(ft, dc);
+
+        ct = Plus(bft, bit);
+
+        Wxox  = Times(Wxo, inputx);
+        Whodh = Times(Who, dh);
+        Wcoct = DiagTimes(Wco, ct);
+
+        ot = Sigmoid( Plus( Plus( Plus(Wxox, bo), Whodh), Wcoct));
+
+        mt = ElementTimes(ot, Tanh(ct));
+
+        Wmr = Parameter(outputDim, cellDim, init=uniform, initValueScale=1);
+        output = Times(Wmr, mt); 
+
+    }
+
+    ComplexElementTimes(halfdim, input1, input2)
+    {
+    	r1 = RowSlice(0      , halfdim, input1);
+    	i1 = RowSlice(halfdim, halfdim, input1);
+    	r2 = RowSlice(0      , halfdim, input2);
+    	i2 = RowSlice(halfdim, halfdim, input2);
+	# real part
+	r  = Minus(ElementTimes(r1, r2), ElementTimes(i1, i2));
+	# imaginary part
+	i  = Plus(ElementTimes(r1, i2), ElementTimes(i1, r2));
+	output = RowStack(r, i);
+    }
+
+    ComlexAbsoluteSquare(halfdim, inputcomp) 
+    {
+    	r = RowSlice(0,       halfdim, inputcomp);
+    	i = RowSlice(halfdim, halfdim, inputcomp);
+	output = Plus(ElementTimes(r, r), ElementTimes(i, i));
+    }
+]
+
+ndlCreateNetwork_LSTMP=[
+
+    #define basic i/o
+    baseFeatDim=$baseFeatDim$
+    RowSliceStart=$RowSliceStart$ 
+    FeatDim=$featDim$
+    allstftDim=$allstftDim$
+    stftDim=$stftDim$
+    hstftDim=$hstftDim$
+    cellDim=$cellDim$
+    hiddenDim=$hiddenDim$
+    labelDim=$labelDim$
+
+    melDim=$melDim$
+    twicemelDim=$twicemelDim$
+
+    features=Input(FeatDim, tag=feature)
+    scalespec=constant(0.00001)
+    One=constant(1,rows=1,cols=1)
+    iscalespec=constant(100000)
+    stftn=InputValue(allstftDim, tag=feature)
+    labels=Input(labelDim, tag=label)
+
+    scaledstftn = Scale(scalespec, stftn);
+		       
+    feashift=RowSlice(RowSliceStart, baseFeatDim, features);      # shift 5 frames right (x_{t+5} -> x_{t} )
+    featNorm = MeanVarNorm(feashift)
+
+    MelMatrix = Parameter(melDim, hstftDim, init=fromFile, InitFromFilePath=$MelFileName$, needGradient=false)
+ 
+    # layer 1
+    LSTMoutput1 = LSTMPComponent(baseFeatDim, hiddenDim, cellDim, featNorm);
+
+    W = Parameter(allstftDim, hiddenDim, init=uniform, initValueScale=1);
+    b = Parameter(allstftDim, init=fixedvalue, value=0);
+    Filter = Tanh(Plus(Times(W, LSTMoutput1), b));
+
+    # averaging filter (3 frames), 0.3333333333 scaling means 1/3
+    FilterSummed = Plus(Filter, Plus(Delay(hstftDim, Filter, delayTime=1), Delay(hstftDim, Filter, delayTime=2)))
+    FilterAvg = Scale(constant(0.3333333333), FilterSummed)
+
+    Filter_1 = RowSlice(0,    stftDim, FilterAvg)
+    Filter_2 = RowSlice(514,  stftDim, FilterAvg)
+    Filter_3 = RowSlice(1028, stftDim, FilterAvg)
+    Filter_4 = RowSlice(1542, stftDim, FilterAvg)
+    Filter_5 = RowSlice(2056, stftDim, FilterAvg)
+
+    stftn_1 = RowSlice(0,    stftDim, scaledstftn)
+    stftn_2 = RowSlice(514,  stftDim, scaledstftn)
+    stftn_3 = RowSlice(1028, stftDim, scaledstftn)
+    stftn_4 = RowSlice(1542, stftDim, scaledstftn)
+    stftn_5 = RowSlice(2056, stftDim, scaledstftn)
+
+    Filteredstftn_1 = ComplexElementTimes(hstftDim, Filter_1, stftn_1)
+    Filteredstftn_2 = ComplexElementTimes(hstftDim, Filter_2, stftn_2)
+    Filteredstftn_3 = ComplexElementTimes(hstftDim, Filter_3, stftn_3)
+    Filteredstftn_4 = ComplexElementTimes(hstftDim, Filter_4, stftn_4)
+    Filteredstftn_5 = ComplexElementTimes(hstftDim, Filter_5, stftn_5)
+
+    # Filter and Sum
+    FilteredNoisy = Plus(Filteredstftn_1, Plus(Filteredstftn_2, Plus(Filteredstftn_3, Plus(Filteredstftn_4, Filteredstftn_5))))
+    MaskedNoisySquare = ComlexAbsoluteSquare(hstftDim, FilteredNoisy) 
+    LogMelFeat = Log(Times(MelMatrix, MaskedNoisySquare))
+
+    # get mean and variance of original noisy features 5ch means stftn_4
+    stftnMagSquare = ComlexAbsoluteSquare(hstftDim, stftn_4)
+    LogMelNoisyFeat = Log(Times(MelMatrix, stftnMagSquare))
+
+    # normalize masked features by the mean and variance of original noise features
+    meanVal=Mean(LogMelNoisyFeat, needGradient=false)
+    invstdVal=InvStdDev(LogMelNoisyFeat, needGradient=false)
+    NormLogMelNoisyFeat=PerDimMeanVarNormalization(LogMelNoisyFeat, meanVal, invstdVal)
+    NormLogMelFeat=DiagTimes(invstdVal, Minus(LogMelFeat, meanVal))
+
+    # stck original and enhanced
+    StackNormLogMelFeat = RowStack(NormLogMelFeat, NormLogMelNoisyFeat)
+
+    # layer d-1
+    LSTMoutputd1 = LSTMPComponent(twicemelDim, hiddenDim, cellDim, StackNormLogMelFeat);
+    # layer d-2 
+    LSTMoutputd2 = LSTMPComponent(hiddenDim, hiddenDim, cellDim, LSTMoutputd1);
+    # layer d-3 
+    LSTMoutputd3 = LSTMPComponent(hiddenDim, hiddenDim, cellDim, LSTMoutputd2);
+
+    Wd = Parameter(labelDim, hiddenDim, init=uniform, initValueScale=1);
+    bd = Parameter(labelDim, init=fixedvalue, value=0);
+    LSTMoutputW = Plus(Times(Wd, LSTMoutputd3), bd);
+
+    cr = CrossEntropyWithSoftmax(labels, LSTMoutputW,tag=Criteria);
+    Err = ErrorPrediction(labels,LSTMoutputW,tag=Eval);
+    
+    logPrior = LogPrior(labels)	 
+    ScaledLogLikelihood=Minus(LSTMoutputW,logPrior,tag=Output)
+]

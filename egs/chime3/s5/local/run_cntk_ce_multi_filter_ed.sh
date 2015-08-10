@@ -15,7 +15,7 @@ train_epochs=50
 epoch=30
 stage=0
 fbanksize=100
-lrps=0.001 #learning rate per sample for cntk
+lrps=0.0001 #learning rate per sample for cntk
 trsubsetsize=1000 # num utterances (head -n) considered for training
 dtsubsetsize=500 # num utterances (head -n) considered for validation
 
@@ -34,9 +34,9 @@ chime3_dir="/local_data2/watanabe/work/201410CHiME3/CHiME3" #MERL
 # CNTK config variables
 start_from_scratch=false # delete experiment directory before starting the experiment
 model=dnn_6layer_ce # {dnn_3layer,dnn_6layer,lstmp-3layer}
-action=TrainDNN # {TrainDNN, TrainLSTM}
-cntk_config=CNTK2_ce_ed.config
-config_write=CNTK2_write_ce_ed.config
+action=TrainLSTM # {TrainDNN, TrainLSTM}
+cntk_config=CNTK2_lstm_ce_ed_filter.config
+config_write=CNTK2_write_ce_ed_filter.config
 nj=20
 njdecode=4
 
@@ -370,7 +370,7 @@ if [ $stage -le 6 ]; then
   if [ ${trsubsetsize} -gt 0 ]; then
     utils/subset_data_dir.sh ${noisystftdir}/tr05_multi_${noisy_type}${noisy_channels} ${trsubsetsize} \
       ${noisystftdir}/tr05_multi_${noisy_type}${noisy_channels}_${trsubsetsize}
-    stftn_tr="scp:${noisystftdir}/tr05_multi_${noisy_type}_${trsubsetsize}/feats.scp"
+    stftn_tr="scp:${noisystftdir}/tr05_multi_${noisy_type}${noisy_channels}_${trsubsetsize}/feats.scp"
   else
     stftn_tr="scp:${noisystftdir}/tr05_multi_${noisy_type}${noisy_channels}/feats.scp"
   fi
@@ -538,13 +538,14 @@ if [ $stage -le 8 ] ; then
    echo "Enhancing with trained model from epoch ${epoch}"
  
    #for set in {dt05_simu,et05_simu}; do
-   for dataset in {dt05_real,dt05_simu,et05_real,et05_simu}; do
+   for dataset in dt05_real dt05_simu et05_real et05_simu; do
      datafeat=$noisyfeatdir/${dataset}_${noisy_type}${noisy_channels}
      datastft=$noisystftdir/${dataset}_${noisy_type}${refch}
-     datastftall=${noisystftdir}/${dataset}_${noisy_type}${noisy_channels} # all 5 channels
-     cntk_string="cntk configFile=${expdir}/${config_write} DeviceNumber=-1 modelName=$cnmodel featDim=$featDim stftDim=$stftDim hstftDim=$hstftDim labelDim=$labelDim action=$action ExpDir=$expdir"
+     datastftall=${noisystftmagdir}/${dataset}_${noisy_type}${noisy_channels} # all 5 channels
+     output_dir=$expdir/decode_graph_${LM}_${dataset}
+     cntk_string="cntk configFile=${expdir}/${config_write} DeviceNumber=-1 modelName=$cnmodel featDim=$featDim stftDim=$stftDim hstftDim=$hstftDim labelDim=$labelDim allstftnmagDim=${allstftnmagDim} action=$action ExpDir=$expdir"
      # run in the background and use wait
-     local/decode_cntk_ed.sh --stftconf $stft_config  --nj $njdecode --cmd "$decode_cmd" --num-threads ${num_threads} --parallel-opts '-pe smp 4' $wavdir $datafeat $datastft $datastftall "$cntk_string" &
+     local/decode_cntk_3feat.sh --nj $njdecode --cmd "$decode_cmd" --num-threads ${num_threads} --parallel-opts '-pe smp 4' $graphdir $datafeat $datastft $datastftall $output_dir "$cntk_string"
    done
    wait;
   else
