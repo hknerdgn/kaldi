@@ -60,6 +60,7 @@ int main(int argc, char *argv[]) {
         SequentialTableReader<WaveHolder> reader1(wav1_rspecifier);
         SequentialTableReader<WaveHolder> reader2(wav2_rspecifier);
         TableWriter<WaveHolder> writer(wav3_wspecifier);
+        BaseFloat sum_rmse_ratio = 0;
 
         int32 num_utts = 0, num_success = 0;
         for (; !reader1.Done() && !reader2.Done(); reader1.Next(), reader2.Next()) {
@@ -67,6 +68,7 @@ int main(int argc, char *argv[]) {
             std::string utt1 = reader1.Key();
             std::string utt2 = reader2.Key();
             KALDI_ASSERT(utt1 == utt2);
+            KALDI_LOG << utt1 << " Starting linear prediction...";
             const WaveData &wave1_data = reader1.Value();
             const WaveData &wave2_data = reader2.Value();
             int32 samp_rate=wave1_data.SampFreq();
@@ -99,24 +101,37 @@ int main(int argc, char *argv[]) {
             SubVector<BaseFloat> waveform2(wave2_data.Data(), this_chan1);
             Vector<BaseFloat> waveform3;
             Vector<BaseFloat> filter;
-            ChannelConvert(waveform1,waveform2,taps,&filter,&waveform3);
+            BaseFloat rmse32 = 1.0; // need to be larger than initial value of rmse12 for the while loop
+            BaseFloat rmse12 = 0.0;
+            BaseFloat rmse_ratio;
+            while (rmse32 > rmse12) { //until we get lower than original MSE
+              ChannelConvert(waveform1,waveform2,taps,&filter,&waveform3);
+
+              // convert matrix to WaveData
+              Vector<BaseFloat> diff(waveform1);
+              diff.AddVec(-1.0, waveform2);
+              rmse12=diff.Norm(2); // l2 norm
+              diff.CopyFromVec(waveform3);
+              diff.AddVec(-1.0, waveform2);
+              rmse32=diff.Norm(2); // l2 norm
+              rmse_ratio=rmse32/rmse12;
+              KALDI_LOG << utt1 << " RMSE(1,2)= " << rmse12 << ". RMSE(3,2)= " << rmse32 << ". Ratio=" << rmse_ratio << "." ;
+              if (rmse32 > rmse12) {
+                taps*=0.9; // reduce taps to regularize and continue while loop with lower taps
+                KALDI_LOG << utt1 << " Repeating with lower FIR taplength " << taps << ".";
+              }
+            }
+            sum_rmse_ratio += rmse_ratio;
+
+            WaveData wave(samp_rate, waveform3);
+            writer.Write(utt1, wave); // write data in wave format.
             if(num_utts % 10 == 0)
                 KALDI_LOG << "Processed " << num_utts << " utterances";
-
-            // convert matrix to WaveData
-            WaveData wave(samp_rate, waveform3);
-            Vector<BaseFloat> diff(waveform1);
-            diff.AddVec(-1.0, waveform2);
-            BaseFloat diff12=diff.Norm(2); // l2 norm
-            diff.CopyFromVec(waveform2);
-            diff.AddVec(-1.0, waveform3);
-            BaseFloat diff13=diff.Norm(2); // l2 norm
-            KALDI_LOG << utt1 << " RMSE(1,2)= " << diff12 << ". RMSE(2,3)= " << diff13 << "." ;
-            writer.Write(utt1, wave); // write data in wave format.
             num_success++;
         }
         KALDI_LOG << " Done " << num_success << " out of " << num_utts
                   << " utterances.";
+        KALDI_LOG << " Average RMSE ratio was = " << sum_rmse_ratio / static_cast<BaseFloat>(num_utts) << ".";
         return (num_success != 0 ? 0 : 1);
     } catch(const std::exception& e) {
         std::cerr << e.what();

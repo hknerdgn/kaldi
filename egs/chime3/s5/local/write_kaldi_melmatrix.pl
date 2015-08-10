@@ -3,8 +3,11 @@
 use strict;
 use POSIX;
 
-# to be run from .. (parent directory)
-my $bin = "compute-fbank-feats";
+my $bin = "../../../src/featbin/compute-fbank-feats";
+
+if (! -x $bin) {
+  die("$bin does not exist. Quitting!");
+}
 
 my $mel_bins = 40;
 if ($ARGV[0] > 0) {
@@ -18,7 +21,7 @@ my $sample_rate = 16000;
 if ($ARGV[2] > 0) {
     $sample_rate = $ARGV[2] + 0;
 }
-my $numrep = 0; # number of repetitions
+my $numrep = 1; # number of repetitions
 if ($ARGV[3] > 0) {
     $numrep = $ARGV[3] + 0;
 }

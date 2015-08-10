@@ -10,6 +10,7 @@ nj=4
 cmd=run.pl
 compress=true
 rewrite=true
+wavdir=
 # End configuration section.
 
 echo "$0 $@"  # Print the command line for logging
@@ -17,12 +18,15 @@ echo "$0 $@"  # Print the command line for logging
 if [ -f path.sh ]; then . ./path.sh; fi
 . parse_options.sh || exit 1;
 
+set -x
+
 if [ $# != 6 ]; then
    echo "usage: make_feat.sh [options] <dataset> <inputdir> <ftype> <fvariety> <fconf> <realsimu>";
    echo "options: "
    echo "  --nj <nj>                                        # number of parallel jobs"
    echo "  --rewrite <true|false>                           # rewrite features regardless they exist"
    echo "  --cmd (utils/run.pl|utils/queue.pl <queue opts>) # how to run jobs."
+   echo "  --wavdir <wavdir>                                # where the wavs are"
    exit 1;
 fi
 
@@ -38,7 +42,7 @@ fi
   x=${dset}_${input}
   if [ ! -d $featlnkdir/$x ] || [ ! -e $featrawdir/raw_${ftype}_${x}.1.ark ] || [ $rewrite == "true" ]; then
     mkdir -p $featlnkdir
-    if [ ! -d data/$x ]; then
+    if [ ! -d data/$x ] || [ $rewrite == "true" ]; then
       if [ $realsimu == "real" ]; then
         local/real_enhan_chime3_data_prep.sh ${input} ${wavdir}/${input}
       elif [ $realsimu == "simu" ]; then
@@ -48,10 +52,10 @@ fi
     utils/copy_data_dir.sh data/$x ${featlnkdir}/$x
     mkdir -p $featrawdir
     if [ $ftype == "fbank" ]; then
-      steps/make_fbank.sh --nj ${njfeat} --cmd "$train_cmd" --fbank-config ${fconf} \
+      steps/make_fbank.sh --nj ${nj} --cmd "$cmd" --fbank-config ${fconf} \
         ${featlnkdir}/$x exp/make_fbank/$x $featrawdir || exit 1;
-    elif [ $ftype == "stft" ]; then
-      local/make_stft.sh  --nj ${njfeat} --cmd "$train_cmd" --stft-config  ${fconf} \
+    elif [ $ftype == "stft" ] || [ $ftype == "stftamp" ] || [ $ftype == "stftphase" ]; then
+      local/make_stft.sh  --nj ${nj} --cmd "$cmd" --stft-config  ${fconf} \
         ${featlnkdir}/$x exp/make_stft/$x  $featrawdir || exit 1;
     fi
   fi

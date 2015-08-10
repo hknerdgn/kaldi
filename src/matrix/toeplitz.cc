@@ -42,6 +42,7 @@ void toeplitz_solve(const Vector<Real> &rvec, const Vector<Real> &cvec, const Ve
     c=cvec.Data();
     y=yvec.Data();
     x=xvec->Data();
+    Real small=r[0]/100;
     nm1=n-1;
     KALDI_ASSERT(r[0] == c[0]);
     if (r[0] == 0.0) KALDI_ERR << "toeplitz_solve: singular input matrix, detection 1";
@@ -61,7 +62,7 @@ void toeplitz_solve(const Vector<Real> &rvec, const Vector<Real> &cvec, const Ve
             sxn += c[mp1-j]*x[j];
             sd += c[mp1-j]*g[m-j];
         }
-        if (sd == 0.0) KALDI_ERR << "toeplitz_solve: singular input matrix, detection 2";
+        if (std::abs(sd) <= small) KALDI_ERR << "toeplitz_solve: singular input matrix, detection 2";
         x[mp1]=sxn/sd; // init x[1] through x[n-1]
         for (j=0; j<mp1; j++)
             x[j] -= x[mp1]*g[m-j]; // update x[j] for j less than or equal to m
@@ -74,7 +75,7 @@ void toeplitz_solve(const Vector<Real> &rvec, const Vector<Real> &cvec, const Ve
             shn += c[mp1-j]*h[j];
             sgd += r[mp1-j]*h[m-j];
         }
-        if (sgd == 0.0) KALDI_ERR << "toeplitz_solve: singular input matrix, detection 3";
+        if (std::abs(sgd) <= small) KALDI_ERR << "toeplitz_solve: singular input matrix, detection 3";
         g[mp1]=sgn/sgd;
         h[mp1]=shn/sd;
         k=m;

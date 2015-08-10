@@ -23,8 +23,8 @@ echo "$0 $@"  # Print the command line for logging
 
 eval_flag=true # make it true when the evaluation data are released
 
-audio_dir=$1/data/audio/16kHz/isolated
-trans_dir=$1/data/transcriptions
+audio_dir=$1/data/audio/16kHz/isolated/
+trans_dir=$1/data/transcriptions/
 
 echo "extract 5th channel (CH5.wav, the center bottom edge in the front of the tablet) for noisy data"
 

@@ -90,9 +90,25 @@ namespace kaldi {
       rvec(i) =  a_corr(i);
       yvec(i) = ab_corr(i);
     }
-    //rvec(0)=1.01*rvec(0); // make diagonal stronger a bit
+    rvec(0)*=1.001; // make diagonal stronger a bit to prevent numerical errors
 
-    toeplitz_solve(rvec, rvec, yvec, h);
+    int32 attempts=0;
+    int32 last=taps;
+
+    while (attempts++ < taps/2) {
+      try {
+        toeplitz_solve(rvec, rvec, yvec, h);
+        break;
+      } catch (const std::exception &e) {
+        //std::cerr << e.what() << "try to regularize..." << std::endl;
+        KALDI_LOG << "toeplitz_solve returned an error. Try to regularize, attempt " << attempts << ".";
+        if (rvec(0) > 0.1)
+          rvec(0) *= 1.001; //strengthen the main diagonal
+        else
+          rvec(0) += 0.0001; //strengthen the main diagonal
+        rvec(--last)=0; // setting far diagonals to zero as well
+      }
+    }
 
     // convolve input with filter to get the output
     Vector<BaseFloat> hf(padded_size); 
