@@ -47,17 +47,17 @@ compute-stft-feats --config=$conf scp:$inwavscp ark:- | compute-inverse-stft --w
 cat << EOF | matlab -nodisplay
 
 file='wav/M04_050C0101_BUS';
-[x,fs]=audioread(sprintf('%s.wav',file));
-[y,fs]=audioread(sprintf('%s_out.wav',file));
+[x,fs]=wavread(sprintf('%s.wav',file));
+[y,fs]=wavread(sprintf('%s_out.wav',file));
 fprintf('Normalized error for %s is %f\n',file, norm(x-y)/norm(y));
 
 file='wav/M04_050C0104_STR';
-[x,fs]=audioread(sprintf('%s.wav',file));
-[y,fs]=audioread(sprintf('%s_out.wav',file));
+[x,fs]=wavread(sprintf('%s.wav',file));
+[y,fs]=wavread(sprintf('%s_out.wav',file));
 fprintf('Normalized error for %s is %f\n',file, norm(x-y)/norm(y));
 
 file='wav/M04_050C0107_PED';
-[x,fs]=audioread(sprintf('%s.wav',file));
-[y,fs]=audioread(sprintf('%s_out.wav',file));
+[x,fs]=wavread(sprintf('%s.wav',file));
+[y,fs]=wavread(sprintf('%s_out.wav',file));
 fprintf('Normalized error for %s is %f\n',file, norm(x-y)/norm(y));
 EOF

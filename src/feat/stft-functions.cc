@@ -39,30 +39,19 @@ void Deemphasize(VectorBase<BaseFloat> *waveform, BaseFloat preemph_coeff) {
 // It attempts to reverse pre-emphasis but cannot reverse dither or DC removal
 // typically: allocate and initialize wave to zero and call this function
 // for each frame similar to ExtractWindow
-void OverlapAdd(const VectorBase<BaseFloat> &window,
-                int32 start,  // start sample
+void OverlapAdd(const VectorBase<BaseFloat> &data, // windowed data to be overlapped and added to the waveform
+                int32 start,  // start sample, if negative, negative part of the window will be trimmed
                 int32 wav_length,  // if exceeds, will be trimmed
-                const FrameExtractionOptions &opts,
-                const FeatureWindowFunction &window_function,
-                Matrix<BaseFloat> *wave) {
-    int32 frame_shift = opts.WindowShift();
-    int32 padded_frame_length = window.Dim();  // usually this is PaddedWindowSize, typically longer than frame_length
+                Vector<BaseFloat> *wave) { // waveform signal to be accumulated from windowed data
+    int32 padded_frame_length = data.Dim();  // usually this is PaddedWindowSize, typically longer than frame_length
     int32 start_output = start;
     if (start_output < 0) start_output = 0;
     int32 end = start + padded_frame_length;
     if (end > wav_length) end = wav_length;
-    KALDI_ASSERT(frame_shift != 0 && padded_frame_length != 0);
-    KALDI_ASSERT(window_function.window.Dim() <= padded_frame_length);
-    KALDI_ASSERT((*wave).NumCols() >= end);
-    // factor required for perfect reconstruction
-    BaseFloat factor = static_cast<BaseFloat>(frame_shift) / static_cast<BaseFloat>(window_function.window.Sum());
-
-    Vector<BaseFloat> window_part(window);
-    if (opts.preemph_coeff != 0.0)
-        Deemphasize(&window_part, opts.preemph_coeff); // actually pre-emphasis and de-emphasis should be done before framing and after forming the full signal, but since it was done frame-wise in ExtractWindow function, we also revert it this way
+    KALDI_ASSERT((*wave).Dim() >= end);
 
     for (int32 k=start_output; k<end; k++)
-        (*wave)(0,k) += factor * window_part(k-start); // accumulate (overlap-add) into first row of Matrix wave
+        (*wave)(k) += data(k-start); // accumulate (overlap-add) into the vector wave
 }
 
 }  // namespace kaldi

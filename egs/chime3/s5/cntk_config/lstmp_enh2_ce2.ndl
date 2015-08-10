@@ -245,14 +245,15 @@ ndlCreateNetwork_LSTMP=[
     noisystftphase=InputValue(noisystftphaseDim, tag=feature)
     cleanstftphase=InputValue(cleanstftphaseDim, tag=feature)
 
+    noisystftampSc = Scale(scalespec,noisystftamp);
+    cleanstftampSc = Scale(scalespec,cleanstftamp);
+
     targetchNoisyPhase=RowSlice(targetStart,cleanstftphaseDim,noisystftphase)
     targetchNoisyAmp=RowSlice(targetStart,cleanstftampDim,noisystftampSc)
     targetchNoisyPow=ElementTimes(targetchNoisyAmp,targetchNoisyAmp)
 
     labels=Input(labelDim,tag=label)
 
-    noisystftampSc = Scale(scalespec,noisystftamp);
-    cleanstftampSc = Scale(scalespec,cleanstftamp);
 			       			       
     EnhMelMatrix = Parameter(enhStackFeatDim,noisystftampDim,init=fromFile,InitFromFilePath=$EnhMelFileName$,needGradient=$EnhMelNeedGradient$)
     CEMelMatrix = Parameter(cefeatDim,cleanstftampDim,init=fromFile,InitFromFilePath=$CeMelFileName$,needGradient=$CeMelNeedGradient$)
@@ -288,29 +289,31 @@ ndlCreateNetwork_LSTMP=[
     # layer 2 
     LSTMce2 = LSTMPComponent(ceHiddenDim, ceHiddenDim, ceCellDim, LSTMce1);
 
+    # for the cross-entropy output
+    Wce = Parameter(labelDim, ceHiddenDim, init=uniform, initValueScale=1);
+    bce = Parameter(labelDim, init=fixedvalue, value=0);
+    LSTMoutputW = Plus(Times(Wce, LSTMce2), bce);
+
+    cr = CrossEntropyWithSoftmax(labels, LSTMoutputW,tag=eval);
+    Err = ErrorPrediction(labels,LSTMoutputW,tag=Eval);
+
     # for enhancement output
     SmaskedNoisy = Scale(iscalespec, MaskedNoisy)
     MaskedNoisywithPhase = RowStack(SmaskedNoisy, targetchNoisyPhase, tag=output)
     
-    IdealMagMask = ElementDivide(cleanstftamp,targetchNoisyAmp)
+    IdealMagMask = ElementDivide(cleanstftampSc,targetchNoisyAmp)
     IdealMagMaskLim = MinSc(One,IdealMagMask)
     IdealMagMaskLimNoisy = ElementTimes(IdealMagMaskLim, targetchNoisyAmp)
     
-    MSE = SquareError(MaskedNoisy, cleanstftampSc, tag=criteria)
+    MSE = SquareError(MaskedNoisy, cleanstftampSc, tag=eval)
     MaskSum = SumElements(Mask, tag=eval)
     NoisyMSE = SquareError(targetchNoisyAmp, cleanstftampSc, tag=eval)
     BestMSE = SquareError(IdealMagMaskLimNoisy, cleanstftampSc, tag=eval)
     CleanSum = SumElements(cleanstftampSc, tag=eval)
     NoisySum = SumElements(targetchNoisyAmp, tag=eval)
 
-    # for the cross-entropy output
-    Wce = Parameter(labelDim, ceHiddenDim, init=uniform, initValueScale=1);
-    bce = Parameter(labelDim, init=fixedvalue, value=0);
-    LSTMoutputW = Plus(Times(Wce, LSTMce2), bce);
-
-    cr = CrossEntropyWithSoftmax(labels, LSTMoutputW,tag=Criteria);
-    Err = ErrorPrediction(labels,LSTMoutputW,tag=Eval);
-
     logPrior = LogPrior(labels)
     ScaledLogLikelihood=Minus(LSTMoutputW,logPrior,tag=Output)
+    alpha=Constant(0.1)
+    Loss=Plus(Scale(alpha, MSE), cr, tag=Criteria);
 ]

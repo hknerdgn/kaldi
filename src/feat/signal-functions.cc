@@ -31,6 +31,7 @@ namespace kaldi {
 		      Vector<BaseFloat> *output) {
     int32 adim = a.Dim();
     int32 bdim = b.Dim();
+    BaseFloat tol_factor = 100.0;
 
     KALDI_ASSERT(adim > 0 && bdim > 0);
     KALDI_ASSERT(adim > taps);
@@ -97,7 +98,7 @@ namespace kaldi {
 
     while (attempts++ < taps/2) {
       try {
-        toeplitz_solve(rvec, rvec, yvec, h);
+        toeplitz_solve(rvec, rvec, yvec, h, tol_factor);
         break;
       } catch (const std::exception &e) {
         //std::cerr << e.what() << "try to regularize..." << std::endl;

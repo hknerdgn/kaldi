@@ -37,21 +37,24 @@ Istft::~Istft() {
 }
 
 void Istft::Compute(const Matrix<BaseFloat> &input,
-                    Matrix<BaseFloat> *wave_out,
+                    Vector<BaseFloat> *wave_out,
                     int32 wav_length) {
     KALDI_ASSERT(wave_out != NULL);
 
     int32 num_frames = input.NumRows();
-    int32 input_feat_size = input.NumCols();
+    //int32 input_feat_size = input.NumCols();
     int32 window_size = opts_.frame_opts.PaddedWindowSize();
     int32 frame_length = opts_.frame_opts.WindowSize();
     BaseFloat samp_freq = opts_.frame_opts.samp_freq;
     int32 frame_shift_samp = static_cast<int32>(samp_freq * 0.001 * opts_.frame_opts.frame_shift_ms);
+    // scale factor required for perfect reconstruction
+    BaseFloat scale_factor = static_cast<BaseFloat>(frame_shift_samp) / static_cast<BaseFloat>(feature_window_function_.window.Sum());
+    BaseFloat preemph_coeff = opts_.frame_opts.preemph_coeff;
 
     if (wav_length < 0) wav_length = frame_shift_samp * (num_frames-1) + window_size;
 
     // Get dimensions of output wav and allocate space
-    wave_out->Resize(1,wav_length); // write single channel, so single row
+    wave_out->Resize(wav_length); // write single channel, now a vector (early version used a matrix)
     wave_out->SetZero(); // set to zero to initialize overlap-add correctly
 
     //KALDI_ASSERT(window_size+2 == input_feat_size);
@@ -146,11 +149,13 @@ void Istft::Compute(const Matrix<BaseFloat> &input,
             srfft_->Compute(temp.Data(), false);
         else  // An alternative algorithm that works for non-powers-of-two
             RealFft(&temp, false);
-        temp.Scale(1/static_cast<BaseFloat>(Nfft)); // inverse fft does not do 1/Nfft
+        temp.Scale(scale_factor/static_cast<BaseFloat>(Nfft)); // inverse fft does not do 1/Nfft
+        if (preemph_coeff != 0.0) // please give this as zero if you want perfect reconstruction
+           Deemphasize(&temp, preemph_coeff); 
         int32 start = r*frame_shift_samp;
         if (!opts_.frame_opts.snip_edges)
             start = -frame_length/2+frame_shift_samp/2+r*frame_shift_samp;
-        OverlapAdd(temp, start, wav_length, opts_.frame_opts, feature_window_function_, wave_out);
+        OverlapAdd(temp, start, wav_length, wave_out);
     }
 } //Istft::Compute
 }  // namespace kaldi

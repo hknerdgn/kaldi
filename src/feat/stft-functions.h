@@ -33,16 +33,15 @@ namespace kaldi {
 /// @addtogroup  feat FeatureExtraction
 /// @{
 
+void Deemphasize(VectorBase<BaseFloat> *waveform, BaseFloat preemph_coeff);
 
 // OverlapAdd aims to reverse ExtractWindow to reconstruct a wave signal
 // OverlapAdd accumulates the waveform from a windowed frame.
 // It attempts to reverse pre-emphasis but cannot reverse dither or DC removal
-void OverlapAdd(const VectorBase<BaseFloat> &window,
-                int32 start,  // start index of the segment, if negative, the overlap-adding will start from zero
-                int32 wav_length,  // total length, if window goes out, it will be trimmed
-                const FrameExtractionOptions &opts,
-                const FeatureWindowFunction &window_function,
-                Matrix<BaseFloat> *wave);
+void OverlapAdd(const VectorBase<BaseFloat> &data, // data to be overlapped added
+                int32 start,  // start sample, if negative, negative part of the window will be trimmed
+                int32 wav_length,  // if exceeds, will be trimmed
+                Vector<BaseFloat> *wave);
 
 
 /// @} End of "addtogroup feat"

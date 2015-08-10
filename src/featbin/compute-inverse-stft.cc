@@ -69,7 +69,7 @@ int main(int argc, char *argv[]) {
             std::string utt = reader.Key();
             const Matrix<BaseFloat> &stftdata_matrix(reader.Value());
 
-            Matrix<BaseFloat> wave_matrix; // no init here, Matrix with single row because WaveData uses that
+            Vector<BaseFloat> wave_vector; // no init here
 
             int32 wav_duration_in_samples;  // get wav durations
             if (wav_durations_rspecifier != "") {
@@ -83,10 +83,10 @@ int main(int argc, char *argv[]) {
                 wav_duration_in_samples = -1; // do not specify duration and let istft figure it out from frames
             }
 
-            istft.Compute(stftdata_matrix, &wave_matrix, wav_duration_in_samples); //note, third arg optional
+            istft.Compute(stftdata_matrix, &wave_vector, wav_duration_in_samples); //note, third arg optional
 
-            // convert matrix to WaveData
-            WaveData wave(samp_rate, wave_matrix);
+            // convert wave_vector to single channel WaveData
+            WaveData wave(samp_rate, wave_vector);
             writer.Write(utt, wave); // write data in wave format.
             num_success++;
         }

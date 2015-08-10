@@ -36,7 +36,7 @@ namespace kaldi {
 /// @{
 
 template<typename Real>
-void toeplitz_solve(const Vector<Real> &r, const Vector<Real> &c, const Vector<Real> &y, Vector<Real> *x);
+void toeplitz_solve(const Vector<Real> &r, const Vector<Real> &c, const Vector<Real> &y, Vector<Real> *x, Real tol_factor = 1000);
 
 template<typename Real>
 void make_toeplitz_matrix(const Vector<Real> &r, Matrix<Real> *rmat);
