@@ -11,11 +11,13 @@
 . ./path.sh
 
 num_threads=1
-device=0
+device=all
 train_epochs=50
 epoch=30 # for testing
 stage=0
 lrps=0.001 #learning rate per sample for cntk
+trsubsetsize=0
+dtsubsetsize=0
 
 noisy_channels="1_3_4_5_6"
 clean_channels="5"
@@ -37,7 +39,7 @@ clean_type=reverb_ch
 start_from_scratch=false # delete experiment directory before starting the experiment
 model=lstmp_enh2_ce2 # {dnn_3layer,dnn_6layer,lstmp-3layer}
 modeltype=RNN # or DNN
-memFrames=500000  # this is randomize parameter for cntk, limits the number of frames read
+memFrames=1500000  # this is randomize parameter for cntk, limits the number of frames read
 #config_write=CNTK2_write_enh+ce.config
 nj=20
 njspk=4
@@ -67,6 +69,7 @@ rewrite=true
 # wave files obtained from here
 chime3_dir="/local_data2/watanabe/work/201410CHiME3/CHiME3"
 chime3_dir="/export/ws15-ffs-data2/herdogan/corpora/chime3/CHiME3"
+chime3_dir="/data2/erdogan/chime3"
 
 # feature extraction parameters
 frameshift_ms=10
@@ -83,6 +86,9 @@ echo "$0 $@"  # Print the command line for logging
 
 . parse_options.sh || exit 1;
 
+
+# remove .ndl if someone forgets to give it without
+model=`echo $model | sed 's/\.ndl$//'`
 alidir_tr=exp/${prevexp}_${bestdata}_ali
 alidir_dt=exp/${prevexp}_${bestdata}_ali_dt05
 
@@ -136,11 +142,11 @@ EnhMelNeedGradient=false
 ceMelFileName=cntk_config/Mel${ceFeatDim}_${num_rep_clean}.txt
 CeMelNeedGradient=false
 
-if [ ! -e $enhMelFileName ]; then
+if [ ! -s $enhMelFileName ]; then
    local/write_kaldi_melmatrix.pl ${enhFeatDim} ${framelength_ms} ${fs} ${num_rep_noisy} > $enhMelFileName
 fi
 
-if [ ! -e $ceMelFileName ]; then
+if [ ! -s $ceMelFileName ]; then
    local/write_kaldi_melmatrix.pl ${ceFeatDim} ${framelength_ms} ${fs} ${num_rep_clean} > $ceMelFileName
 fi
 
@@ -431,7 +437,7 @@ Train=[
         momentumPerMB=0:0.9
         dropoutRate=0.0
         maxEpochs=${train_epochs}
-        numMBsToShowResult=500
+        numMBsToShowResult=100
     
 
         #settings for Auto Adjust Learning Rate

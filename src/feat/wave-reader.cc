@@ -334,13 +334,15 @@ void WaveData::Write(std::ostream &os) const {
 
   const BaseFloat *data_ptr = data_.Data();
   int32 stride = data_.Stride();
+  int32 out_range_count = 0;
 
   for (int32 i = 0; i < num_samp; i++) {
     for (int32 j = 0; j < num_chan; j++) {
       int32 elem = static_cast<int32>(data_ptr[j*stride + i]);
       int16 elem_16(elem);
       if (static_cast<int32>(elem_16) != elem) {
-        KALDI_WARN << "Wave file is out of range for 16-bit.";
+        if (out_range_count++ == 0)
+          KALDI_WARN << "Wave file is out of range for 16-bit.";
 	elem_16 = static_cast<int16>(data_ptr[j*stride + i]); // not sure about int32 casting to int16 when out of range
       }
 #ifdef __BIG_ENDIAN__
@@ -349,6 +351,8 @@ void WaveData::Write(std::ostream &os) const {
       os.write(reinterpret_cast<char*>(&elem_16), 2);
     }
   }
+  if (out_range_count > 1)
+    KALDI_WARN << "Wave file is out of range for 16-bit " << out_range_count << " number of times.";
   if (os.fail())
     KALDI_ERR << "Error writing wave data to stream.";
 }
