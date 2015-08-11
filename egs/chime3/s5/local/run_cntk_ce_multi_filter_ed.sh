@@ -72,7 +72,7 @@ set -u
 set -o pipefail
 set -x
 
-output=ce_${noisy_type}${noisy_channels}_${model}
+output=ce_${noisy_type}${noisy_channels}_${model}_lr${lrps}_tr${trsubsetsize}_dt${dtsubsetsize}
 expdir=exp/cntk_${output}
 
 if [ "$start_from_scratch" = true ]; then
@@ -243,11 +243,11 @@ if [ $stage -le 5 ]; then
       feats_tr="scp:${noisyfeatdir}/tr05_multi_${noisyinput}/feats.scp"
     fi
     if [ ${dtsubsetsize} -gt 0 ]; then
-      utils/subset_data_dir.sh ${noisyfeatdir}/dt05_multi_${noisyinput} ${dtsubsetsize} \
-	${noisyfeatdir}/dt05_multi_${noisyinput}_${dtsubsetsize}
-      feats_dt="scp:${noisyfeatdir}/dt05_multi_${noisyinput}_${dtsubsetsize}/feats.scp"
+      utils/subset_data_dir.sh ${noisyfeatdir}/dt05_real_${noisyinput} ${dtsubsetsize} \
+	${noisyfeatdir}/dt05_real_${noisyinput}_${dtsubsetsize}
+      feats_dt="scp:${noisyfeatdir}/dt05_real_${noisyinput}_${dtsubsetsize}/feats.scp"
     else
-      feats_dt="scp:${noisyfeatdir}/dt05_multi_${noisyinput}/feats.scp"
+      feats_dt="scp:${noisyfeatdir}/dt05_real_${noisyinput}/feats.scp"
     fi
 
     (feat-to-len "$feats_tr" ark,t:- > $expdir/cntk_train.$ch.counts) || exit 1;
@@ -270,11 +270,11 @@ if [ $stage -le 5 ]; then
       stftn_tr="scp:${noisystftdir}/tr05_multi_${noisyinput}/feats.scp"
     fi
     if [ ${dtsubsetsize} -gt 0 ]; then
-      utils/subset_data_dir.sh ${noisystftdir}/dt05_multi_${noisyinput} ${dtsubsetsize} \
-        ${noisystftdir}/dt05_multi_${noisyinput}_${dtsubsetsize}
-      stftn_dt="scp:${noisystftdir}/dt05_multi_${noisyinput}_${dtsubsetsize}/feats.scp"
+      utils/subset_data_dir.sh ${noisystftdir}/dt05_real_${noisyinput} ${dtsubsetsize} \
+        ${noisystftdir}/dt05_real_${noisyinput}_${dtsubsetsize}
+      stftn_dt="scp:${noisystftdir}/dt05_real_${noisyinput}_${dtsubsetsize}/feats.scp"
     else
-      stftn_dt="scp:${noisystftdir}/dt05_multi_${noisyinput}/feats.scp"
+      stftn_dt="scp:${noisystftdir}/dt05_real_${noisyinput}/feats.scp"
     fi
 
     echo "$stftn_tr" > $expdir/cntk_train.$ch.stftn
@@ -324,7 +324,7 @@ if [ $stage -le 6 ]; then
     fi
     # extract power spectrum
     dim=0
-    for ch in `echo 1_3_4_5_6 | tr "_" " "`; do 
+    for ch in `echo $noisy_channels | tr "_" " "`; do 
       echo -n "${dim}-"
       d=`feat-to-dim --print-args=false "scp:data-stft/dt05_simu_ch${ch}/feats.scp" -`
       halfd=`echo "$d / 2" | bc`
@@ -354,11 +354,11 @@ if [ $stage -le 6 ]; then
     feats_tr="scp:${noisyfeatdir}/tr05_multi_${noisy_type}${noisy_channels}/feats.scp"
   fi
   if [ ${dtsubsetsize} -gt 0 ]; then
-    utils/subset_data_dir.sh ${noisyfeatdir}/dt05_multi_${noisy_type}${noisy_channels} ${dtsubsetsize} \
-      ${noisyfeatdir}/dt05_multi_${noisy_type}${noisy_channels}_${dtsubsetsize}
-    feats_dt="scp:${noisyfeatdir}/dt05_multi_${noisy_type}${noisy_channels}_${dtsubsetsize}/feats.scp"
+    utils/subset_data_dir.sh ${noisyfeatdir}/dt05_real_${noisy_type}${noisy_channels} ${dtsubsetsize} \
+      ${noisyfeatdir}/dt05_real_${noisy_type}${noisy_channels}_${dtsubsetsize}
+    feats_dt="scp:${noisyfeatdir}/dt05_real_${noisy_type}${noisy_channels}_${dtsubsetsize}/feats.scp"
   else
-    feats_dt="scp:${noisyfeatdir}/dt05_multi_${noisy_type}${noisy_channels}/feats.scp"
+    feats_dt="scp:${noisyfeatdir}/dt05_real_${noisy_type}${noisy_channels}/feats.scp"
   fi
   echo "$feats_tr" > $expdir/cntk_train.stack.feats
   echo "$feats_dt" > $expdir/cntk_valid.stack.feats
@@ -375,11 +375,11 @@ if [ $stage -le 6 ]; then
     stftn_tr="scp:${noisystftdir}/tr05_multi_${noisy_type}${noisy_channels}/feats.scp"
   fi
   if [ ${dtsubsetsize} -gt 0 ]; then
-    utils/subset_data_dir.sh ${noisystftdir}/dt05_multi_${noisy_type}${noisy_channels} ${dtsubsetsize} \
-      ${noisystftdir}/dt05_multi_${noisy_type}${noisy_channels}_${dtsubsetsize}
-    stftn_dt="scp:${noisystftdir}/dt05_multi_${noisy_type}${noisy_channels}_${dtsubsetsize}/feats.scp"
+    utils/subset_data_dir.sh ${noisystftdir}/dt05_real_${noisy_type}${noisy_channels} ${dtsubsetsize} \
+      ${noisystftdir}/dt05_real_${noisy_type}${noisy_channels}_${dtsubsetsize}
+    stftn_dt="scp:${noisystftdir}/dt05_real_${noisy_type}${noisy_channels}_${dtsubsetsize}/feats.scp"
   else
-    stftn_dt="scp:${noisystftdir}/dt05_multi_${noisy_type}${noisy_channels}/feats.scp"
+    stftn_dt="scp:${noisystftdir}/dt05_real_${noisy_type}${noisy_channels}/feats.scp"
   fi
   echo "$stftn_tr" > $expdir/cntk_train.stack.stftn
   echo "$stftn_dt" > $expdir/cntk_valid.stack.stftn
@@ -396,18 +396,19 @@ if [ $stage -le 6 ]; then
     allstftnmag_tr="scp:${noisystftmagdir}/tr05_multi_${noisy_type}${noisy_channels}/feats.scp"
   fi
   if [ ${dtsubsetsize} -gt 0 ]; then
-    utils/subset_data_dir.sh ${noisystftmagdir}/dt05_multi_${noisy_type}${noisy_channels} ${dtsubsetsize} \
-      ${noisystftmagdir}/dt05_multi_${noisy_type}${noisy_channels}_${dtsubsetsize}
-    allstftnmag_dt="scp:${noisystftmagdir}/dt05_multi_${noisy_type}${noisy_channels}_${dtsubsetsize}/feats.scp"
+    utils/subset_data_dir.sh ${noisystftmagdir}/dt05_real_${noisy_type}${noisy_channels} ${dtsubsetsize} \
+      ${noisystftmagdir}/dt05_real_${noisy_type}${noisy_channels}_${dtsubsetsize}
+    allstftnmag_dt="scp:${noisystftmagdir}/dt05_real_${noisy_type}${noisy_channels}_${dtsubsetsize}/feats.scp"
   else
-    allstftnmag_dt="scp:${noisystftmagdir}/dt05_multi_${noisy_type}${noisy_channels}/feats.scp"
+    allstftnmag_dt="scp:${noisystftmagdir}/dt05_real_${noisy_type}${noisy_channels}/feats.scp"
   fi
   echo "$allstftnmag_tr" > $expdir/cntk_train.stack.stftnmag
   echo "$allstftnmag_dt" > $expdir/cntk_valid.stack.stftnmag
 
-  # we did not make a subset of alignments
+  # we did not make a subset of alignments, only use real dt
   labels_tr="ark:ali-to-pdf $alidir_tr/final.mdl \"ark:gunzip -c $alidir_tr/ali.*.gz |\" ark:- | ali-to-post ark:- ark:- |"
-  labels_dt="ark:ali-to-pdf $alidir_dt/final.mdl \"ark:gunzip -c $alidir_dt/ali.*.gz |\" ark:- | ali-to-post ark:- ark:- |"
+  #labels_dt="ark:ali-to-pdf $alidir_dt/final.mdl \"ark:gunzip -c $alidir_dt/ali.*.gz |\" ark:- | ali-to-post ark:- ark:- |"
+  labels_dt="ark:ali-to-pdf $alidir_dt/final.mdl \"ark:gunzip -c $alidir_dt/ali.*.gz |\" ark,t:- | grep '_REAL' | ali-to-post ark:- ark:- |"
   echo "$labels_tr" > $expdir/cntk_train.labels
   echo "$labels_dt" > $expdir/cntk_valid.labels
 
@@ -521,7 +522,7 @@ $cntk_train_cmd $parallel_opts JOB=1:1 $expdir/log/cntk.JOB.log \
   baseFeatDim=$baseFeatDim RowSliceStart=$RowSliceStart \
   DeviceNumber=$device action=${action} ndlfile=$ndlfile numThreads=$num_threads
 
-echo "$0 successfuly finished.. $dir"
+echo "$0 successfuly finished.. $expdir"
 
 fi
 
@@ -542,7 +543,7 @@ if [ $stage -le 8 ] ; then
      datafeat=$noisyfeatdir/${dataset}_${noisy_type}${noisy_channels}
      datastft=$noisystftdir/${dataset}_${noisy_type}${refch}
      datastftall=${noisystftmagdir}/${dataset}_${noisy_type}${noisy_channels} # all 5 channels
-     output_dir=$expdir/decode_graph_${LM}_${dataset}
+     output_dir=$expdir/decode_graph_${LM}_${dataset}_epoch${epoch}
      cntk_string="cntk configFile=${expdir}/${config_write} DeviceNumber=-1 modelName=$cnmodel featDim=$featDim stftDim=$stftDim hstftDim=$hstftDim labelDim=$labelDim allstftnmagDim=${allstftnmagDim} action=$action ExpDir=$expdir"
      # run in the background and use wait
      local/decode_cntk_3feat.sh --nj $njdecode --cmd "$decode_cmd" --num-threads ${num_threads} --parallel-opts '-pe smp 4' $graphdir $datafeat $datastft $datastftall $output_dir "$cntk_string"

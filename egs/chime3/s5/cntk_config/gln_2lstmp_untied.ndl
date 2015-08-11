@@ -1,0 +1,282 @@
+load=ndlMacroDefine
+run=ndlCreateNetwork_LSTMP
+
+ndlMacroDefine=[
+
+    LSTMPComponent(inputDim, outputDim, cellDim, inputx)
+    {
+        Wxo = Parameter(cellDim, inputDim, init=uniform, initValueScale=1);
+        Wxi = Parameter(cellDim, inputDim, init=uniform, initValueScale=1);
+        Wxf = Parameter(cellDim, inputDim, init=uniform, initValueScale=1);
+        Wxc = Parameter(cellDim, inputDim, init=uniform, initValueScale=1);
+
+        bo = Parameter(cellDim, init=fixedValue, value=0.0);
+        bc = Parameter(cellDim, init=fixedValue, value=0.0);
+        bi = Parameter(cellDim, init=fixedValue, value=0.0);
+        bf = Parameter(cellDim, init=fixedValue, value=0.0);
+
+        Whi = Parameter(cellDim, outputDim, init=uniform, initValueScale=1);
+
+        Wci = Parameter(cellDim, init=uniform, initValueScale=1);
+
+
+        Whf = Parameter(cellDim, outputDim, init=uniform, initValueScale=1);
+        Wcf = Parameter(cellDim, init=uniform, initValueScale=1);
+        Who = Parameter(cellDim, outputDim, init=uniform, initValueScale=1);
+        Wco = Parameter(cellDim, init=uniform, initValueScale=1);
+        Whc = Parameter(cellDim, outputDim, init=uniform, initValueScale=1);
+
+        dh = Delay(outputDim, output, delayTime=1);
+        dc = Delay(cellDim, ct, delayTime=1);
+
+
+        Wxix = Times(Wxi, inputx);
+        Whidh = Times(Whi, dh);
+        Wcidc = DiagTimes(Wci, dc);
+
+        it = Sigmoid (Plus ( Plus (Plus (Wxix, bi), Whidh), Wcidc));
+
+        Wxcx = Times(Wxc, inputx);
+        Whcdh = Times(Whc, dh);
+        bit = ElementTimes(it, Tanh( Plus(Wxcx, Plus(Whcdh, bc))));
+
+        Wxfx = Times(Wxf, inputx);
+        Whfdh = Times(Whf, dh);
+        Wcfdc = DiagTimes(Wcf, dc);
+
+        ft = Sigmoid( Plus (Plus (Plus(Wxfx, bf), Whfdh), Wcfdc));
+
+        bft = ElementTimes(ft, dc);
+
+        ct = Plus(bft, bit);
+
+        Wxox  = Times(Wxo, inputx);
+        Whodh = Times(Who, dh);
+        Wcoct = DiagTimes(Wco, ct);
+
+        ot = Sigmoid( Plus( Plus( Plus(Wxox, bo), Whodh), Wcoct));
+
+        mt = ElementTimes(ot, Tanh(ct));
+
+        Wmr = Parameter(outputDim, cellDim, init=uniform, initValueScale=1);
+        output = Times(Wmr, mt); 
+
+    }
+
+    ComplexElementTimes(halfdim, input1, input2)
+    {
+    	r1 = RowSlice(0      , halfdim, input1);
+    	i1 = RowSlice(halfdim, halfdim, input1);
+    	r2 = RowSlice(0      , halfdim, input2);
+    	i2 = RowSlice(halfdim, halfdim, input2);
+	# real part
+	r  = Minus(ElementTimes(r1, r2), ElementTimes(i1, i2));
+	# imaginary part
+	i  = Plus(ElementTimes(r1, i2), ElementTimes(i1, r2));
+	output = RowStack(r, i);
+    }
+
+    ComlexAbsoluteSquare(halfdim, inputcomp) 
+    {
+    	r = RowSlice(0,       halfdim, inputcomp);
+    	i = RowSlice(halfdim, halfdim, inputcomp);
+	output = Plus(ElementTimes(r, r), ElementTimes(i, i));
+    }
+
+    LSTMPComponentFromParam(inputDim, outputDim, cellDim, Wxox, Wxix, Wxfx, Wxcx, Who, Whi, Whf, Whc, Wco, Wci, Wcf, Wmr, bo, bi, bf, bc)
+    {
+        dh = Delay(outputDim, output, delayTime=1);
+	dc = Delay(cellDim, ct, delayTime=1);
+    	Whidh = Times(Whi, dh);
+	Wcidc = DiagTimes(Wci, dc);
+	it = Sigmoid (Plus ( Plus (Plus (Wxix, bi), Whidh), Wcidc));
+        Whcdh = Times(Whc, dh);
+        bit = ElementTimes(it, Tanh( Plus(Wxcx, Plus(Whcdh, bc))));
+        Whfdh = Times(Whf, dh);
+        Wcfdc = DiagTimes(Wcf, dc);
+        ft = Sigmoid( Plus (Plus (Plus(Wxfx, bf), Whfdh), Wcfdc));
+        bft = ElementTimes(ft, dc);
+        ct = Plus(bft, bit);
+        Whodh = Times(Who, dh);
+        Wcoct = DiagTimes(Wco, ct);
+        ot = Sigmoid( Plus( Plus( Plus(Wxox, bo), Whodh), Wcoct));
+        mt = ElementTimes(ot, Tanh(ct));
+        output = Times(Wmr, mt);
+    }
+
+    LSTMPComponentFromParam_2(inputDim, outputDim, cellDim, LX, LP)
+    {
+	dh = Delay(outputDim, output, delayTime=1);
+        dc = Delay(cellDim, ct, delayTime=1);
+        Whidh = Times(LP.Whi, dh);
+	Wcidc = DiagTimes(LP.Wci, dc);
+        it = Sigmoid (Plus ( Plus (Plus (LX.Wxix, LP.bi), Whidh), Wcidc));
+        Whcdh = Times(LP.Whc, dh);
+        bit = ElementTimes(it, Tanh( Plus(LX.Wxcx, Plus(Whcdh, LP.bc))));
+        Whfdh = Times(LP.Whf, dh);
+        Wcfdc = DiagTimes(LP.Wcf, dc);
+        ft = Sigmoid( Plus (Plus (Plus(LX.Wxfx, LP.bf), Whfdh), Wcfdc));
+        bft = ElementTimes(ft, dc);
+        ct = Plus(bft, bit);
+        Whodh = Times(LP.Who, dh);
+        Wcoct = DiagTimes(LP.Wco, ct);
+        ot = Sigmoid( Plus( Plus( Plus(LX.Wxox, LP.bo), Whodh), Wcoct));
+        mt = ElementTimes(ot, Tanh(ct));
+        output = Times(LP.Wmr, mt);
+    }
+
+    LSTM_PARM(cellDim, inputDim, outputDim)
+    {
+        Who=LearnableParameter(cellDim, inputDim, init=uniform, initValueScale=1);
+    	Whi=LearnableParameter(cellDim, inputDim, init=uniform, initValueScale=1);
+    	Whf=LearnableParameter(cellDim, inputDim, init=uniform, initValueScale=1);
+    	Whc=LearnableParameter(cellDim, inputDim, init=uniform, initValueScale=1);
+
+    	Wco=LearnableParameter(cellDim, init=uniform, initValueScale=1);
+    	Wci=LearnableParameter(cellDim, init=uniform, initValueScale=1);
+    	Wcf=LearnableParameter(cellDim, init=uniform, initValueScale=1);
+    	Wmr=LearnableParameter(outputDim, cellDim, init=uniform, initValueScale=1);
+
+    	bo=LearnableParameter(cellDim, init=fixedValue, value=0.0);
+    	bi=LearnableParameter(cellDim, init=fixedValue, value=0.0);
+    	bf=LearnableParameter(cellDim, init=fixedValue, value=0.0);
+    	bc=LearnableParameter(cellDim, init=fixedValue, value=0.0);
+    }
+
+    FOUR_WEIGHTS(cellDim, inputDim)
+    {
+        Wxo=LearnableParameter(cellDim, inputDim, init=uniform, initValueScale=1);
+    	Wxi=LearnableParameter(cellDim, inputDim, init=uniform, initValueScale=1);
+	Wxf=LearnableParameter(cellDim, inputDim, init=uniform, initValueScale=1);
+	Wxc=LearnableParameter(cellDim, inputDim, init=uniform, initValueScale=1);
+    }
+
+    APPLY_FOUR(Wxo, Wxi, Wxf, Wxc, inputz)
+    {
+        Wxox=Times(Wxo, inputz);
+        Wxix=Times(Wxi, inputz);
+        Wxfx=Times(Wxf, inputz);
+        Wxcx=Times(Wxc, inputz);
+    }
+
+    SUM_FOUR(Wxox1, Wxix1, Wxfx1, Wxcx1, Wxox2, Wxix2, Wxfx2, Wxcx2)
+    {
+	Wxox=Plus(Wxox1, Wxox2);
+	Wxix=Plus(Wxix1, Wxix2);
+	Wxfx=Plus(Wxfx1, Wxfx2);
+	Wxcx=Plus(Wxcx1, Wxcx2);
+    }
+]
+
+ndlCreateNetwork_LSTMP=[
+
+    #define basic i/o
+    baseFeatDim=$baseFeatDim$
+    RowSliceStart=$RowSliceStart$ 
+    FeatDim=$featDim$
+    allstftDim=$allstftDim$
+    stftDim=$stftDim$
+    hstftDim=$hstftDim$
+    cellDim=$cellDim$
+    hiddenDim=$hiddenDim$
+    labelDim=$labelDim$
+    globalDim=$globalDim$
+
+    melDim=$melDim$
+    twicemelDim=$twicemelDim$
+
+    features=Input(FeatDim, tag=feature)
+    scalespec=constant(0.00001)
+    One=constant(1,rows=1,cols=1)
+    iscalespec=constant(100000)
+    stftn=InputValue(allstftDim, tag=feature)
+    labels=Input(labelDim, tag=label)
+
+    feashift=RowSlice(RowSliceStart, baseFeatDim, features);      # shift 5 frames right (x_{t+5} -> x_{t} )
+    featNorm = MeanVarNorm(feashift)
+
+    featNorm_1 = RowSlice(0,   melDim, featNorm)
+    featNorm_2 = RowSlice(40,  melDim, featNorm)
+    featNorm_3 = RowSlice(80,  melDim, featNorm)
+    featNorm_4 = RowSlice(120, melDim, featNorm)
+    featNorm_5 = RowSlice(160, melDim, featNorm)
+
+    W_l1 = LearnableParameter(globalDim, melDim, init=uniform, initValueScale=1)
+    b_l1 = LearnableParameter(globalDim, init=uniform, initValueScale=1)
+
+    SummedVector_l1 = Plus(featNorm_1, Plus(featNorm_2, Plus(featNorm_3, Plus(featNorm_4, featNorm_5))))
+    AvgVector_l1 = Scale(constant(0.2), SummedVector_l1)
+    GlobalVector_l1 = Sigmoid(Plus(Times(W_l1, AvgVector_l1), b_l1))
+
+    F_ll1 = FOUR_WEIGHTS(cellDim, melDim)
+    F_gl1 = FOUR_WEIGHTS(cellDim, globalDim)
+
+    Fvec_gl1=APPLY_FOUR(F_gl1.Wxo, F_gl1.Wxi, F_gl1.Wxf, F_gl1.Wxc, GlobalVector_l1)
+    Fvec1_ll1=APPLY_FOUR(F_ll1.Wxo, F_ll1.Wxi, F_ll1.Wxf, F_ll1.Wxc, featNorm_1)
+    Fvec2_ll1=APPLY_FOUR(F_ll1.Wxo, F_ll1.Wxi, F_ll1.Wxf, F_ll1.Wxc, featNorm_2)
+    Fvec3_ll1=APPLY_FOUR(F_ll1.Wxo, F_ll1.Wxi, F_ll1.Wxf, F_ll1.Wxc, featNorm_3)
+    Fvec4_ll1=APPLY_FOUR(F_ll1.Wxo, F_ll1.Wxi, F_ll1.Wxf, F_ll1.Wxc, featNorm_4)
+    Fvec5_ll1=APPLY_FOUR(F_ll1.Wxo, F_ll1.Wxi, F_ll1.Wxf, F_ll1.Wxc, featNorm_5)
+
+    SumFvec1_ll1=SUM_FOUR(Fvec1_ll1.Wxox, Fvec1_ll1.Wxix, Fvec1_ll1.Wxfx, Fvec1_ll1.Wxcx, Fvec_gl1.Wxox, Fvec_gl1.Wxix, Fvec_gl1.Wxfx, Fvec_gl1.Wxcx)
+    SumFvec2_ll1=SUM_FOUR(Fvec2_ll1.Wxox, Fvec2_ll1.Wxix, Fvec2_ll1.Wxfx, Fvec2_ll1.Wxcx, Fvec_gl1.Wxox, Fvec_gl1.Wxix, Fvec_gl1.Wxfx, Fvec_gl1.Wxcx)
+    SumFvec3_ll1=SUM_FOUR(Fvec3_ll1.Wxox, Fvec3_ll1.Wxix, Fvec3_ll1.Wxfx, Fvec3_ll1.Wxcx, Fvec_gl1.Wxox, Fvec_gl1.Wxix, Fvec_gl1.Wxfx, Fvec_gl1.Wxcx)
+    SumFvec4_ll1=SUM_FOUR(Fvec4_ll1.Wxox, Fvec4_ll1.Wxix, Fvec4_ll1.Wxfx, Fvec4_ll1.Wxcx, Fvec_gl1.Wxox, Fvec_gl1.Wxix, Fvec_gl1.Wxfx, Fvec_gl1.Wxcx)
+    SumFvec5_ll1=SUM_FOUR(Fvec5_ll1.Wxox, Fvec5_ll1.Wxix, Fvec5_ll1.Wxfx, Fvec5_ll1.Wxcx, Fvec_gl1.Wxox, Fvec_gl1.Wxix, Fvec_gl1.Wxfx, Fvec_gl1.Wxcx)
+
+    LP_l1 = LSTM_PARM(cellDim, melDim, melDim)
+
+    L1_l1=LSTMPComponentFromParam(melDim, melDim, cellDim, SumFvec1_ll1.Wxox, SumFvec1_ll1.Wxix, SumFvec1_ll1.Wxfx, SumFvec1_ll1.Wxcx, LP_l1.Who, LP_l1.Whi, LP_l1.Whf, LP_l1.Whc, LP_l1.Wco, LP_l1.Wci, LP_l1.Wcf, LP_l1.Wmr, LP_l1.bo, LP_l1.bi, LP_l1.bf, LP_l1.bc)
+    L2_l1=LSTMPComponentFromParam(melDim, melDim, cellDim, SumFvec2_ll1.Wxox, SumFvec2_ll1.Wxix, SumFvec2_ll1.Wxfx, SumFvec2_ll1.Wxcx, LP_l1.Who, LP_l1.Whi, LP_l1.Whf, LP_l1.Whc, LP_l1.Wco, LP_l1.Wci, LP_l1.Wcf, LP_l1.Wmr, LP_l1.bo, LP_l1.bi, LP_l1.bf, LP_l1.bc)
+    L3_l1=LSTMPComponentFromParam(melDim, melDim, cellDim, SumFvec3_ll1.Wxox, SumFvec3_ll1.Wxix, SumFvec3_ll1.Wxfx, SumFvec3_ll1.Wxcx, LP_l1.Who, LP_l1.Whi, LP_l1.Whf, LP_l1.Whc, LP_l1.Wco, LP_l1.Wci, LP_l1.Wcf, LP_l1.Wmr, LP_l1.bo, LP_l1.bi, LP_l1.bf, LP_l1.bc)
+    L4_l1=LSTMPComponentFromParam(melDim, melDim, cellDim, SumFvec4_ll1.Wxox, SumFvec4_ll1.Wxix, SumFvec4_ll1.Wxfx, SumFvec4_ll1.Wxcx, LP_l1.Who, LP_l1.Whi, LP_l1.Whf, LP_l1.Whc, LP_l1.Wco, LP_l1.Wci, LP_l1.Wcf, LP_l1.Wmr, LP_l1.bo, LP_l1.bi, LP_l1.bf, LP_l1.bc)
+    L5_l1=LSTMPComponentFromParam(melDim, melDim, cellDim, SumFvec5_ll1.Wxox, SumFvec5_ll1.Wxix, SumFvec5_ll1.Wxfx, SumFvec5_ll1.Wxcx, LP_l1.Who, LP_l1.Whi, LP_l1.Whf, LP_l1.Whc, LP_l1.Wco, LP_l1.Wci, LP_l1.Wcf, LP_l1.Wmr, LP_l1.bo, LP_l1.bi, LP_l1.bf, LP_l1.bc)
+ 
+    W_l2 = LearnableParameter(globalDim, melDim, init=uniform, initValueScale=1)
+    b_l2 = LearnableParameter(globalDim, init=uniform, initValueScale=1)
+
+    SummedVector_l2 = Plus(L1_l1, Plus(L2_l1, Plus(L3_l1, Plus(L4_l1, L5_l1))))
+    AvgVector_l2 = Scale(constant(0.2), SummedVector_l2)
+    GlobalVector_l2 = Sigmoid(Plus(Times(W_l2, AvgVector_l2), b_l2))
+
+    F_ll2 = FOUR_WEIGHTS(cellDim, melDim)
+    F_gl2 = FOUR_WEIGHTS(cellDim, globalDim)
+
+    Fvec_gl2=APPLY_FOUR(F_gl2.Wxo, F_gl2.Wxi, F_gl2.Wxf, F_gl2.Wxc, GlobalVector_l2)
+    Fvec1_ll2=APPLY_FOUR(F_ll2.Wxo, F_ll2.Wxi, F_ll2.Wxf, F_ll2.Wxc, L1_l1)
+    Fvec2_ll2=APPLY_FOUR(F_ll2.Wxo, F_ll2.Wxi, F_ll2.Wxf, F_ll2.Wxc, L2_l1)
+    Fvec3_ll2=APPLY_FOUR(F_ll2.Wxo, F_ll2.Wxi, F_ll2.Wxf, F_ll2.Wxc, L3_l1)
+    Fvec4_ll2=APPLY_FOUR(F_ll2.Wxo, F_ll2.Wxi, F_ll2.Wxf, F_ll2.Wxc, L4_l1)
+    Fvec5_ll2=APPLY_FOUR(F_ll2.Wxo, F_ll2.Wxi, F_ll2.Wxf, F_ll2.Wxc, L5_l1)
+
+    SumFvec1_ll2=SUM_FOUR(Fvec1_ll2.Wxox, Fvec1_ll2.Wxix, Fvec1_ll2.Wxfx, Fvec1_ll2.Wxcx, Fvec_gl2.Wxox, Fvec_gl2.Wxix, Fvec_gl2.Wxfx, Fvec_gl2.Wxcx)
+    SumFvec2_ll2=SUM_FOUR(Fvec2_ll2.Wxox, Fvec2_ll2.Wxix, Fvec2_ll2.Wxfx, Fvec2_ll2.Wxcx, Fvec_gl2.Wxox, Fvec_gl2.Wxix, Fvec_gl2.Wxfx, Fvec_gl2.Wxcx)
+    SumFvec3_ll2=SUM_FOUR(Fvec3_ll2.Wxox, Fvec3_ll2.Wxix, Fvec3_ll2.Wxfx, Fvec3_ll2.Wxcx, Fvec_gl2.Wxox, Fvec_gl2.Wxix, Fvec_gl2.Wxfx, Fvec_gl2.Wxcx)
+    SumFvec4_ll2=SUM_FOUR(Fvec4_ll2.Wxox, Fvec4_ll2.Wxix, Fvec4_ll2.Wxfx, Fvec4_ll2.Wxcx, Fvec_gl2.Wxox, Fvec_gl2.Wxix, Fvec_gl2.Wxfx, Fvec_gl2.Wxcx)
+    SumFvec5_ll2=SUM_FOUR(Fvec5_ll2.Wxox, Fvec5_ll2.Wxix, Fvec5_ll2.Wxfx, Fvec5_ll2.Wxcx, Fvec_gl2.Wxox, Fvec_gl2.Wxix, Fvec_gl2.Wxfx, Fvec_gl2.Wxcx)
+
+    LP_l2 = LSTM_PARM(cellDim, melDim, melDim)
+
+    L1_l2=LSTMPComponentFromParam(melDim, melDim, cellDim, SumFvec1_ll2.Wxox, SumFvec1_ll2.Wxix, SumFvec1_ll2.Wxfx, SumFvec1_ll2.Wxcx, LP_l2.Who, LP_l2.Whi, LP_l2.Whf, LP_l2.Whc, LP_l2.Wco, LP_l2.Wci, LP_l2.Wcf, LP_l2.Wmr, LP_l2.bo, LP_l2.bi, LP_l2.bf, LP_l2.bc)
+    L2_l2=LSTMPComponentFromParam(melDim, melDim, cellDim, SumFvec2_ll2.Wxox, SumFvec2_ll2.Wxix, SumFvec2_ll2.Wxfx, SumFvec2_ll2.Wxcx, LP_l2.Who, LP_l2.Whi, LP_l2.Whf, LP_l2.Whc, LP_l2.Wco, LP_l2.Wci, LP_l2.Wcf, LP_l2.Wmr, LP_l2.bo, LP_l2.bi, LP_l2.bf, LP_l2.bc)
+    L3_l2=LSTMPComponentFromParam(melDim, melDim, cellDim, SumFvec3_ll2.Wxox, SumFvec3_ll2.Wxix, SumFvec3_ll2.Wxfx, SumFvec3_ll2.Wxcx, LP_l2.Who, LP_l2.Whi, LP_l2.Whf, LP_l2.Whc, LP_l2.Wco, LP_l2.Wci, LP_l2.Wcf, LP_l2.Wmr, LP_l2.bo, LP_l2.bi, LP_l2.bf, LP_l2.bc)
+    L4_l2=LSTMPComponentFromParam(melDim, melDim, cellDim, SumFvec4_ll2.Wxox, SumFvec4_ll2.Wxix, SumFvec4_ll2.Wxfx, SumFvec4_ll2.Wxcx, LP_l2.Who, LP_l2.Whi, LP_l2.Whf, LP_l2.Whc, LP_l2.Wco, LP_l2.Wci, LP_l2.Wcf, LP_l2.Wmr, LP_l2.bo, LP_l2.bi, LP_l2.bf, LP_l2.bc)
+    L5_l2=LSTMPComponentFromParam(melDim, melDim, cellDim, SumFvec5_ll2.Wxox, SumFvec5_ll2.Wxix, SumFvec5_ll2.Wxfx, SumFvec5_ll2.Wxcx, LP_l2.Who, LP_l2.Whi, LP_l2.Whf, LP_l2.Whc, LP_l2.Wco, LP_l2.Wci, LP_l2.Wcf, LP_l2.Wmr, LP_l2.bo, LP_l2.bi, LP_l2.bf, LP_l2.bc)
+
+    W_l3 = LearnableParameter(globalDim, melDim, init=uniform, initValueScale=1)
+    b_l3 = LearnableParameter(globalDim, init=uniform, initValueScale=1)
+
+    SummedVector_l3 = Plus(L1_l2, Plus(L2_l2, Plus(L3_l2, Plus(L4_l2, L5_l2))))
+    AvgVector_l3 = Scale(constant(0.2), SummedVector_l3)
+    GlobalVector_l3 = Sigmoid(Plus(Times(W_l3, AvgVector_l3), b_l3))
+
+    Wd = Parameter(labelDim, globalDim, init=uniform, initValueScale=1);
+    bd = Parameter(labelDim, init=fixedvalue, value=0);
+    GLNoutput = Plus(Times(Wd, GlobalVector_l3), bd);
+
+    cr = CrossEntropyWithSoftmax(labels, GLNoutput,tag=Criteria);
+    Err = ErrorPrediction(labels, GLNoutput,tag=Eval);
+    
+    logPrior = LogPrior(labels)	 
+    ScaledLogLikelihood=Minus(GLNoutput, logPrior, tag=Output)
+]

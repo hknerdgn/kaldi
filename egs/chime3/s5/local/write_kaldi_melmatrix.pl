@@ -3,7 +3,7 @@
 use strict;
 use POSIX;
 
-my $bin = "../../../src/featbin/compute-fbank-feats";
+my $bin = "/data/erdogan/prog/kaldi/src/featbin/compute-fbank-feats";
 
 if (! -x $bin) {
   die("$bin does not exist. Quitting!");
