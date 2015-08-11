@@ -14,11 +14,12 @@ device=1
 train_epochs=50
 epoch=30
 stage=0
-fbanksize=40
-lrps=0.01 #learning rate per sample for cntk
+fbanksize=100
+lrps=0.0001 #learning rate per sample for cntk
+cescale=0.001
+msescale=0.001
 trsubsetsize=1000 # num utterances (head -n) considered for training
 dtsubsetsize=500 # num utterances (head -n) considered for validation
-globalDim=100
 
 LM=tgpr_5k
 
@@ -36,7 +37,7 @@ chime3_dir="/local_data2/watanabe/work/201410CHiME3/CHiME3" #MERL
 start_from_scratch=false # delete experiment directory before starting the experiment
 model=dnn_6layer_ce # {dnn_3layer,dnn_6layer,lstmp-3layer}
 action=TrainLSTM # {TrainDNN, TrainLSTM}
-cntk_config=CNTK2_lstm_ce_ed_complex_filter.config
+cntk_config=CNTK2_lstm_ce_mse_ed_complex_filter.config
 config_write=CNTK2_write_ce_ed_complex_filter.config
 nj=20
 njdecode=4
@@ -72,7 +73,7 @@ set -u
 set -o pipefail
 set -x
 
-output=ce_${noisy_type}${noisy_channels}_${model}_gd${globalDim}_lr${lrps}_tr${trsubsetsize}_dt${dtsubsetsize}
+output=ce_${noisy_type}${noisy_channels}_${model}_lr${lrps}_ce${cescale}_mse${msescale}_tr${trsubsetsize}_dt${dtsubsetsize}
 expdir=exp/cntk_${output}
 
 if [ "$start_from_scratch" = true ]; then
@@ -153,7 +154,7 @@ if [ $stage -le 1 ]; then
 fi
 
 # noisy speech stft feature extraction
-if [ $stage -le -1 ]; then
+if [ $stage -le 2 ]; then
   for ch in `echo $noisy_channels | tr "_" " "`; do
     noisyinput=${noisy_type}${ch}
 
@@ -183,7 +184,7 @@ if [ $stage -le -1 ]; then
 fi
 
 # clean speech stft feature extraction
-if [ $stage -le -1 ]; then
+if [ $stage -le 3 ]; then
   for ch in `echo $clean_channels | tr "_" " "`; do
     cleaninput=${clean_type}${ch}
 
@@ -214,7 +215,7 @@ fi
 
 mkdir -p $expdir
 # get alignment
-if [ $stage -le -1 ]; then
+if [ $stage -le 4 ]; then
   if [ ! -d ${alidir_tr} ]; then
     # make 40-dim fbank features for enhan data
     fbankdir=fbank/$enhan
@@ -292,8 +293,24 @@ if [ $stage -le 5 ]; then
 
   for ch in `echo $clean_channels | tr "_" " "`; do
     cleaninput=${clean_type}${ch}
-    stftc_tr="scp:${cleanstftdir}/tr05_simu_${cleaninput}/feats.scp"
-    stftc_dt="scp:${cleanstftdir}/dt05_simu_${cleaninput}/feats.scp"
+    utils/combine_data.sh ${cleanstftdir}/tr05_multi_${cleaninput} \
+      ${cleanstftdir}/tr05_simu_${cleaninput} ${cleanstftdir}/tr05_real_${cleaninput}
+    utils/combine_data.sh ${cleanstftdir}/dt05_multi_${cleaninput} \
+      ${cleanstftdir}/dt05_simu_${cleaninput} ${cleanstftdir}/dt05_real_${cleaninput}
+    if [ ${trsubsetsize} -gt 0 ]; then
+      utils/subset_data_dir.sh ${cleanstftdir}/tr05_multi_${cleaninput} ${trsubsetsize} \
+        ${cleanstftdir}/tr05_multi_${cleaninput}_${trsubsetsize}
+      stftc_tr="scp:${cleanstftdir}/tr05_multi_${cleaninput}_${trsubsetsize}/feats.scp"
+    else
+      stftc_tr="scp:${cleanstftdir}/tr05_multi_${cleaninput}/feats.scp"
+    fi
+    if [ ${dtsubsetsize} -gt 0 ]; then
+      utils/subset_data_dir.sh ${cleanstftdir}/dt05_real_${cleaninput} ${dtsubsetsize} \
+        ${cleanstftdir}/dt05_real_${cleaninput}_${dtsubsetsize}
+      stftc_dt="scp:${cleanstftdir}/dt05_real_${cleaninput}_${dtsubsetsize}/feats.scp"
+    else
+      stftc_dt="scp:${cleanstftdir}/dt05_real_${cleaninput}/feats.scp"
+    fi
 
     echo "$stftc_tr" > $expdir/cntk_train.$ch.stftc
     echo "$stftc_dt" > $expdir/cntk_valid.$ch.stftc
@@ -328,6 +345,20 @@ if [ $stage -le 6 ]; then
       echo -n "${noisystftdir}/${dataset}_${noisy_type}${noisy_channels} " >> $expdir/stack_stft_${dataset}.sh
       echo -n "$expdir/append_stft_${dataset}_${noisy_type}${noisy_channels} " >> $expdir/stack_stft_${dataset}.sh
       echo -n "stft/real_imag/${noisy_type}" >> $expdir/stack_stft_${dataset}.sh
+      chmod +x $expdir/stack_stft_${dataset}.sh
+      $expdir/stack_stft_${dataset}.sh
+    fi
+    # clean stft stacking
+    if [ ! -d ${cleanstftdir}/${dataset}_${clean_type}${clean_channels} ]; then
+      echo -n "./steps/append_feats.sh " >  $expdir/stack_stft_${dataset}.sh
+      for ch in `echo $clean_channels | tr "_" " "`; do
+	cleaninput=${clean_type}${ch}
+	x=${dataset}_${cleaninput}
+	echo -n "${cleanstftdir}/$x " >> $expdir/stack_stft_${dataset}.sh
+      done
+      echo -n "${cleanstftdir}/${dataset}_${clean_type}${clean_channels} " >> $expdir/stack_stft_${dataset}.sh
+      echo -n "$expdir/append_stft_${dataset}_${clean_type}${clean_channels} " >> $expdir/stack_stft_${dataset}.sh
+      echo -n "stft/real_imag/${clean_type}" >> $expdir/stack_stft_${dataset}.sh
       chmod +x $expdir/stack_stft_${dataset}.sh
       $expdir/stack_stft_${dataset}.sh
     fi
@@ -375,6 +406,27 @@ if [ $stage -le 6 ]; then
   echo "$stftn_tr" > $expdir/cntk_train.stack.stftn
   echo "$stftn_dt" > $expdir/cntk_valid.stack.stftn
 
+  utils/combine_data.sh ${cleanstftdir}/tr05_multi_${clean_type}${clean_channels} \
+    ${cleanstftdir}/tr05_simu_${clean_type}${clean_channels} ${cleanstftdir}/tr05_real_${clean_type}${clean_channels}
+  utils/combine_data.sh ${cleanstftdir}/dt05_multi_${clean_type}${clean_channels} \
+    ${cleanstftdir}/dt05_simu_${clean_type}${clean_channels} ${cleanstftdir}/dt05_real_${clean_type}${clean_channels}
+  if [ ${trsubsetsize} -gt 0 ]; then
+    utils/subset_data_dir.sh ${cleanstftdir}/tr05_multi_${clean_type}${clean_channels} ${trsubsetsize} \
+      ${cleanstftdir}/tr05_multi_${clean_type}${clean_channels}_${trsubsetsize}
+    stftc_tr="scp:${cleanstftdir}/tr05_multi_${clean_type}${clean_channels}_${trsubsetsize}/feats.scp"
+  else
+    stftc_tr="scp:${cleanstftdir}/tr05_multi_${clean_type}${clean_channels}/feats.scp"
+  fi
+  if [ ${dtsubsetsize} -gt 0 ]; then
+    utils/subset_data_dir.sh ${cleanstftdir}/dt05_real_${clean_type}${clean_channels} ${dtsubsetsize} \
+      ${cleanstftdir}/dt05_real_${clean_type}${clean_channels}_${dtsubsetsize}
+    stftc_dt="scp:${cleanstftdir}/dt05_real_${clean_type}${clean_channels}_${dtsubsetsize}/feats.scp"
+  else
+    stftc_dt="scp:${cleanstftdir}/dt05_real_${clean_type}${clean_channels}/feats.scp"
+  fi
+  echo "$stftc_tr" > $expdir/cntk_train.stack.stftc
+  echo "$stftc_dt" > $expdir/cntk_valid.stack.stftc
+
   # we did not make a subset of alignments, only use real dt
   labels_tr="ark:ali-to-pdf $alidir_tr/final.mdl \"ark:gunzip -c $alidir_tr/ali.*.gz |\" ark:- | ali-to-post ark:- ark:- |"
   #labels_dt="ark:ali-to-pdf $alidir_dt/final.mdl \"ark:gunzip -c $alidir_dt/ali.*.gz |\" ark:- | ali-to-post ark:- ark:- |"
@@ -386,10 +438,12 @@ if [ $stage -le 6 ]; then
   # noisy and clean: ch5
   cp $expdir/cntk_train.stack.feats $expdir/cntk_train.feats
   cp $expdir/cntk_train.stack.stftn $expdir/cntk_train.stftn
+  cp $expdir/cntk_train.stack.stftc $expdir/cntk_train.stftc
   cp $expdir/cntk_train.${refch}.counts $expdir/cntk_train.counts
 
   cp $expdir/cntk_valid.stack.feats $expdir/cntk_valid.feats
   cp $expdir/cntk_valid.stack.stftn $expdir/cntk_valid.stftn
+  cp $expdir/cntk_valid.stack.stftc $expdir/cntk_valid.stftc
   cp $expdir/cntk_valid.${refch}.counts $expdir/cntk_valid.counts
 fi
 
@@ -455,7 +509,8 @@ labelMapping=${expdir}/cntk_label.mapping
 melDim=${melDim}
 twicemelDim=${twicemelDim}
 MelFileName=$expdir/mel$melDim.mat
-globalDim=${globalDim}
+cescale=${cescale}
+msescale=${msescale}
 
 action=${action}
 ndlfile=$ndlfile
