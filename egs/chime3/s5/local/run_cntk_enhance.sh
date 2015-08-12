@@ -52,6 +52,7 @@ addLayerMel=${model}.mel
 
 # wave files obtained from here
 chime3dir=/local_data2/watanabe/work/201410CHiME3/CHiME3
+chime3dir=/data2/erdogan/chime3
 
 echo "$0 $@"  # Print the command line for logging
 
@@ -320,7 +321,7 @@ fi
 if [ $stage -le 2 ]; then
 
   if [ $noisytestinput != $noisyinput ]; then
-    for dataset in {dt05,et05}; do
+    for dataset in {tr05,dt05,et05}; do
       for env in {real,simu}; do
         make_feat ${dataset}_${env} ${noisytestinput} fbank ${fbankvariety} ${fbank_config} ${env} ${rewrite}
         make_feat ${dataset}_${env} ${noisytestinput} stft  ${stftvariety}  ${stft_config}  ${env} ${rewrite}
@@ -335,7 +336,7 @@ if [ $stage -le 2 ]; then
   if [ -e $cnmodel ]; then
    echo "Enhancing with trained model from epoch ${epoch}"
  
-   for dataset in {dt05_real,dt05_simu,et05_real,et05_simu}; do
+   for dataset in {tr05_real,tr05_simu,dt05_real,dt05_simu,et05_real,et05_simu}; do
      datafeat=$fbanklnkdir/${dataset}_${noisytestinput}
      datastft=$stftlnkdir/${dataset}_${noisytestinput}
      enh_wav_dir=$expdir/enhance_${noisytestinput}_${epoch}  # output wavs will be written here

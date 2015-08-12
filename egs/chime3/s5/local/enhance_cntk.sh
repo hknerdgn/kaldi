@@ -17,6 +17,7 @@ use_gpu_id=-1 # disable gpu
 parallel_opts= # use 2 CPUs (1 DNN-forward, 1 decoder)
 num_threads=
 stftconf=
+rewrite=true
 # End configuration section.
 
 echo "$0 $@"  # Print the command line for logging
@@ -37,6 +38,11 @@ sfdata=$featdir/split$nj;
 ssdata=$stftdir/split$nj;
 
 cnstring=$5
+
+if [ ! -d $wavdir ]; then
+  echo "wav directory $wavdir does not exist. Please provide a valid one."
+  exit 1;
+fi
 
 mkdir -p $dir/log
 [[ -d $sfdata && $featdir/feats.scp -ot $sfdata ]] || split_data.sh $featdir $nj || exit 1;
@@ -59,7 +65,7 @@ inputstfts="$ssdata/JOB/cntkInputStft.scp"
 outwav_scp="scp:$ssdata/JOB/${enhmethod}_wav.scp"
 inwavdur="ark:$ssdata/JOB/wav_durations.ark"
 
-if [ ! -e $sfdata/$nj/cntkInputFeat.scp ] || [ ! -e $ssdata/$nj/cntkInputStft.scp ] || [ ! -e $sfdata/$nj/cntkInput.counts ]; then
+if [ $rewrite == true ] || [ ! -e $sfdata/$nj/cntkInputFeat.scp ] || [ ! -e $ssdata/$nj/cntkInputStft.scp ] || [ ! -e $sfdata/$nj/cntkInput.counts ]; then
 $cmd JOB=1:$nj $dir/log/split_input.JOB.log \
    feat-to-len "$feats" ark,t:"$inputCounts" || exit 1;
 
@@ -71,7 +77,7 @@ $cmd JOB=1:$nj $dir/log/make_stft.JOB.log \
 fi
 
 
-if [ ! -e $ssdata/$nj/${enhmethod}_wav.scp ] || [ ! -e $ssdata/$nj/${enhmethod}_dirs.txt ]; then
+if [ $rewrite == true ] || [ ! -e $ssdata/$nj/${enhmethod}_wav.scp ] || [ ! -e $ssdata/$nj/${enhmethod}_dirs.txt ]; then
 $cmd JOB=1:$nj $dir/log/make_outwav.JOB.log \
    cat $ssdata/JOB/wav.scp \| sed "s#$wavdir#$dir#" \> $ssdata/JOB/${enhmethod}_wav.scp
 
@@ -82,12 +88,16 @@ $cmd JOB=1:$nj $dir/log/make_outwavdirs.JOB.log \
    local/mk_mult_dirs.sh $ssdata/JOB/${enhmethod}_dirs.txt
 fi
 
-if [ ! -e $ssdata/$nj/wav_durations.ark ]; then
+if [ $rewrite == true ] || [ ! -e $ssdata/$nj/wav_durations.ark ]; then
 $cmd JOB=1:$nj $dir/log/make_inwavdur.JOB.log \
    wav-to-duration $inwav_scp $inwavdur
 fi
 
-
+if diff $ssdata/$nj/${enhmethod}_wav.scp $ssdata/$nj/wav.scp > /dev/null ; then
+  echo "Input and output wav file lists are the same. Quitting."
+  exit 1;
+fi
+   
 # Run the enhancement in the queue
 if [ $stage -le 0 ]; then
   $cmd $parallel_opts JOB=1:$nj $dir/log/enhance.JOB.log \

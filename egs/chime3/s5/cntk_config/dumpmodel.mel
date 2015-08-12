@@ -1,0 +1,2 @@
+m1=LoadModel($model$, format=cntk)
+Dump(m1,$model$.dump.txt,includeData=$includeData$)
