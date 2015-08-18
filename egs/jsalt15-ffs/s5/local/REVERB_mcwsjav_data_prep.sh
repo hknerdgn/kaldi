@@ -20,26 +20,6 @@
 
 
 # for REVERB challenge:
-
-dir=`pwd`/data/local/data
-lmdir=`pwd`/data/local/nist_lm
-mkdir -p $dir $lmdir
-local=`pwd`/local
-utils=`pwd`/utils
-root=`pwd`
-
-. ./path.sh # Needed for KALDI_ROOT
-export PATH=$PATH:$KALDI_ROOT/tools/irstlm/bin
-sph2pipe=$KALDI_ROOT/tools/sph2pipe_v2.5/sph2pipe
-if [ ! -x $sph2pipe ]; then
-   echo "Could not find (or execute) the sph2pipe program at $sph2pipe";
-   exit 1;
-fi
-
-cd $dir
-
-MIC=primary
-
 # original input corpus (original or processed, tr or dt, etc.)
 RWSJ_ORIG=$1
 if [ ! -d "$RWSJ_ORIG" ]; then
@@ -73,20 +53,41 @@ fi
 
 mcwsjav_mlf=$RWSJ_ORIG/mlf/WSJ.mlf
 
-enhan=
-if [ ! -z "$5" ]; then
-    enhan=_$5
+enhan=$5
+
+
+#dir=`pwd`/data/local/data
+dir=`pwd`/data/reverb/$enhan/local #/local/data
+lmdir=`pwd`/data/local/nist_lm
+mkdir -p $dir $lmdir
+local=`pwd`/local
+utils=`pwd`/utils
+#taskFileDir=$dir/../../reverb_tools/ReleasePackage/reverb_tools_for_asr_ver2.0/taskFiles/1ch
+taskFileDir=`pwd`/data/local/reverb_tools/ReleasePackage/reverb_tools_for_asr_ver2.0/taskFiles/1ch
+
+root=`pwd`
+
+. ./path.sh # Needed for KALDI_ROOT
+export PATH=$PATH:$KALDI_ROOT/tools/irstlm/bin
+sph2pipe=$KALDI_ROOT/tools/sph2pipe_v2.5/sph2pipe
+if [ ! -x $sph2pipe ]; then
+   echo "Could not find (or execute) the sph2pipe program at $sph2pipe";
+   exit 1;
 fi
+
+cd $dir
+
+MIC=primary
+
 
 # unfortunately, we need a pointer to HTK baseline 
 # since the corpus does NOT contain the data set descriptions 
 # for the REVERB Challenge
 
-taskFileDir=$dir/../reverb_tools/ReleasePackage/reverb_tools_for_asr_ver2.0/taskFiles/1ch
 #taskFiles=`ls $taskFileDir/*Data_dt_for_*`
 taskFiles=`ls $taskFileDir/RealData_${dt_or_x}_for_1ch_{far,near}*`
 
-dir2=$dir/${dataset}${enhan}
+dir2=$dir/${dataset} #${enhan}
 mkdir -p $dir2
 
 for taskFile in $taskFiles; do
@@ -156,7 +157,7 @@ $local/find_transcripts_txt.pl $dir2/$set.txt1 | sort | uniq > $dir2/$set.txt
 # Create directory structure required by decoding scripts
 
 cd $root
-data_dir=data/$dataset${enhan}/$set
+data_dir=data/reverb/$enhan/$set
 mkdir -p $data_dir
 cp $dir2/${set}_wav.scp ${data_dir}/wav.scp || exit 1;
 cp $dir2/$set.txt ${data_dir}/text || exit 1;

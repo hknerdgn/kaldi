@@ -1,0 +1,1 @@
+../../../ami/s5/local/score_asclite.sh

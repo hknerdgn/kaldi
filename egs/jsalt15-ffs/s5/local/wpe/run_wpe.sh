@@ -21,26 +21,24 @@
 # limitations under the License.
 
 
-# settings/sample.scp wav_sample res4  
-#scp=settings/sample.scp
-#corpusdir=wav_sample
-#resdir=res3
-
-
 if [ $# -lt 4 ]; then
   printf "\nUSAGE: %s <scp file> <corpus dir> <result dir> <nb mics> <arrayname file>\n\n" `basename $0`
-  echo "e.g.,:"
-  echo " `basename $0` sample.scp XXX YYY"
+  echo "... where <scp file> is a path with a file contain wav file list to be processed."
+  echo "... <corpus dir> is the path to the original corpus"
+  echo "... <result dir> is the path to the dereverberated corpus"
+  echo "... <nb mics> is the number of microphones used for dereverberation"
+  echo "... <tset> is the target test set (dev/eval)"
+  echo "... <array file> is the path to a file giving the mic array naming convention"
+  echo "e.g.: local/wpe/run_wpe.sh data/reverb/wpe8/wav/RealData_dt_for_1ch_near_room1_A.scp"
+  echo "      /export/REVERB  data/reverb/wpe8/wav 8 local/wpe/conf/arrayname_reverb_8ch.lst"
   exit 1;
 fi
-
-#arrayname=$confdir/arrayname_${task}_${nbmics}ch.lst
 
 scp=$1
 corpusdir=$2
 resdir=$3
 nbmics=$4
-array_name=$5
+arrayname=$5
 
 matlab=matlab
 

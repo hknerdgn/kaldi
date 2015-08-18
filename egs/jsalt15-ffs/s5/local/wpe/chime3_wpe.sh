@@ -32,7 +32,7 @@ echo "$0 $@"  # Print the command line for logging
 
 
 if [ $# != 3 ]; then
-   echo "Usage: ami_wpe.sh [options] <corpus-dir> <nbmics> <testset>"
+   echo "Usage: ami_wpe.sh [options] <corpus-dir> <nbmics> <tset>"
    echo "... where <corpus-dir> is assumed to be the directory where the"
    echo " original chime3 corpus is located."
    echo "... <nbmics> is the number of microphones used for dereverberation"
@@ -79,7 +79,9 @@ for cond in $conds; do
     logname=${tset}_${cond}
     log=$logdir/$logname.log
     echo $log
-    echo $cmd $log local/wpe/run_wpe.sh `pwd`/$scp $corpusdir $resdir $nbmics $arrayname
+    echo $cmd $log local/wpe/run_wpe.sh `pwd`/$scp $corpusdir `pwd`/$resdir $nbmics $arrayname
     
-    $cmd $log local/wpe/run_wpe.sh `pwd`/$scp $corpusdir $resdir $nbmics $arrayname &
+    $cmd $log local/wpe/run_wpe.sh `pwd`/$scp $corpusdir `pwd`/$resdir $nbmics $arrayname &
 done
+
+wait
