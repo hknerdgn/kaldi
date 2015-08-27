@@ -90,6 +90,13 @@ combinemethod=mean
 postmask=true
 postmaskmin=0.3
 min_lambda=1.0
+elif [ ${bfparam} == edgemask ]; then
+useedgemask=true
+combinemasks=false
+combinemethod=none
+postmask=false
+postmaskmin=-1.0
+min_lambda=1.0
 fi
 
 # make data dirs for noisy channels, (single channel) enhanced files if they do not exist
@@ -183,7 +190,7 @@ for job in $(seq -f "%01.0f" 1 ${nj}); do
 
 cat << EOF > ${mfiledir}/${mfilebase}_${nj}_${job}.m
 addpath('$MATLABPATH');
-param.enhancedir='$enhancedir';
+param.use_edge_mask='${useedgemask}';
 param.usemaskvad='false'; % for second round
 param.processmask='false'; % for second round
 param.tworound='false';
@@ -200,7 +207,11 @@ warning('off', 'MATLAB:audiovideo:wavread:functionToBeRemoved');
 warning('off','all');
 for i=[$channels]
   inwavscps{i}=sprintf('${RECIPEDIR}/data/${dataset}_ch%d/split${nj}/%d/wav.scp',i,${job});
-  enhwavscps{i}=sprintf('${RECIPEDIR}/data/${dataset}_${scenhancevariety}_ch%d/split${nj}/%d/wav.scp',i,${job});
+  if (strcmp(param.use_edge_mask,'true'))
+    enhwavscps{1}='dummy';
+  else
+    enhwavscps{i}=sprintf('${RECIPEDIR}/data/${dataset}_${scenhancevariety}_ch%d/split${nj}/%d/wav.scp',i,${job});
+  end
 end
 refwavscp=sprintf('${outscpdir}/ref_wavs_${dataset}_${nj}_%02d.scp',${job}); % the list of reference microphone noisy wavs, output
 outputdir='${outputwavdir}';
@@ -221,7 +232,7 @@ if [ $stage -le 2 ]; then
 nj=${njeval}
 
 # combine parts of reference mic noisy scps
-cat ${outscpdir}/ref_wavs_${dataset}_${nj}_??.scp > ${outscpdir}/ref_wavs_${dataset}.scp
+cat ${outscpdir}/ref_wavs_${dataset}_${njbf}_??.scp > ${outscpdir}/ref_wavs_${dataset}.scp
 
 # now make data from the outputs of mvdr beamforming and split it
 utils/copy_data_dir.sh data/${dataset}_ch1 data/${dataset}_${bfvariety}

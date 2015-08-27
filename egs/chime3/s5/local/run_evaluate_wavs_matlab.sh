@@ -20,6 +20,8 @@ nj=20
 chime3dir=/data2/erdogan/chime3
 ch=5
 enhancetype=
+cleantype=
+evariety=
 
 echo "$0 $@"  # Print the command line for logging
 
@@ -29,7 +31,11 @@ echo "$0 $@"  # Print the command line for logging
 # if your enhanced wavs are not located in $wavdir, you should make a link to it
 # under the $wavdir with an appropriate name
 wavdir=$chime3dir/data/audio/16kHz
-cleantype=reverb_ch${ch}
+if [ x$cleantype == x ]; then
+  cleantype=reverb_ch${ch}
+else
+  evariety=${evariety}_${cleantype}
+fi
 noisytype=ch${ch}
 if [ x$enhancetype == "x" ]; then
   enhancetype=ch5_lstmp_3layer_enh_ch${ch}
@@ -41,7 +47,7 @@ if [ $num_threads -gt 1 ]; then
   parallel_opts="--num-threads $num_threads"
 fi
 
-EXPDIR=${RECIPEDIR}/exp/eval_wavs_only/${enhancetype}
+EXPDIR=${RECIPEDIR}/exp/eval_wavs_only/${enhancetype}${evariety}
 LDIR=$EXPDIR/log
 mfiledir=${EXPDIR}/matlab
 mkdir -p $mfiledir
