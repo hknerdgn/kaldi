@@ -2,25 +2,35 @@
 
 # Copyright 2014, University of Edinburgh (Author: Pawel Swietojanski)
 # AMI Corpus dev/eval data preparation 
+#
+# Modified by Marc Delcroix, NTT Corporation, July 22 2015
+#
 
-. path.sh
+# Begin configuration section
+mic=
+# End configuration section
+
+echo "$0 $@"  # Print the command line for logging
+
+[ -f ./path.sh ] && . ./path.sh; # source the path.
+
+. parse_options.sh || exit 1;
+
 
 #check existing directories
-if [ $# != 4 ]; then
-  echo "Usage: ami_mc_enh_scoring_data_prep.sh <path/to/AMI> <mic-id> <set-name> <enhancement name>"
+if [ $# != 3 ]; then
+  echo "Usage: ami_mc_enh_scoring_data_prep.sh <path/to/AMI> <set-name> <enhancement name>"
+  echo "  --mic <mic>                                # number of the target mic for recognition (can be empty if single mic)"
   exit 1; 
 fi 
 
 AMI_DIR=$1
-MICNUM=$2
-SET=$3
-ENH=$4
-#DSET="$ENH$MICNUM"
-DSET="$ENH"
+SET=$2
+ENH=$3
 
 SEGS=data/local/annotations/$SET.txt
-tmpdir=data/local/$DSET/$SET
-dir=data/$DSET/$SET
+tmpdir=data/ami/$ENH/$SET/local
+dir=data/ami/$ENH/$SET
 
 mkdir -p $tmpdir
 
@@ -39,8 +49,12 @@ fi
 # find headset wav audio files only, here we again get all
 # the files in the corpora and filter only specific sessions
 # while building segments
-
-find $AMI_DIR -iname "*.Array1-0$MICNUM.wav" | sort > $tmpdir/wav.flist
+if [ ! -z "$mic" ]; then
+    grepcond=.Array1-0$mic.wav
+else
+    grepcond=.wav
+fi
+find $AMI_DIR -iname "*$grepcond" | sort > $tmpdir/wav.flist
 
 n=`cat $tmpdir/wav.flist | wc -l`
 echo "In total, $n files were found."
@@ -66,9 +80,15 @@ awk '{
 #sed -e 's?.*/??' -e 's?.sph??' $dir/wav.flist | paste - $dir/wav.flist \
 #  > $dir/wav.scp
 
-sed -e 's?.*/??' -e 's?.wav??' $tmpdir/wav.flist | \
- perl -ne 'split; $_ =~ m/(.*)\..*/; print "AMI_$1_SDM\n"' | \
-  paste - $tmpdir/wav.flist > $tmpdir/wav1.scp
+if [ ! -z "$mic" ]; then
+    sed -e 's?.*/??' -e 's?.wav??' $tmpdir/wav.flist | \
+	perl -ne 'split; $_ =~ m/(.*)\..*/; print "AMI_$1_SDM\n"' | \
+	paste - $tmpdir/wav.flist > $tmpdir/wav1.scp
+else
+    sed -e 's?.*/??' -e 's?.wav??' $tmpdir/wav.flist | \
+	perl -ne 'split; $_ =~ m/(.*)/; print "AMI_$1_SDM\n"' | \
+	paste - $tmpdir/wav.flist > $tmpdir/wav1.scp
+fi
 
 #Keep only devset part of waves
 awk '{print $2}' $tmpdir/segments | sort -u | join - $tmpdir/wav1.scp > $tmpdir/wav2.scp
@@ -101,21 +121,31 @@ awk '{print $1}' $tmpdir/segments | \
 #(important for simulatenous asclite scoring to proceed).
 #There is actually only one such case for devset and automatic segmentetions
 join $tmpdir/utt2spk_stm $tmpdir/segments | \
-   perl -ne '{BEGIN{$pu=""; $pt=0.0;} split;
-           if ($pu eq $_[1] && $pt > $_[3]) {
-             print "$_[0] $_[2] $_[3] $_[4]>$_[0] $_[2] $pt $_[4]\n"
-           }
-           $pu=$_[1]; $pt=$_[4]; 
-         }' > $tmpdir/segments_to_fix
+  awk '{ utt=$1; spk=$2; wav=$3; t_beg=$4; t_end=$5;
+         if(spk_prev == spk && t_end_prev > t_beg) {
+           print utt, wav, t_beg, t_end">"utt, wav, t_end_prev, t_end;
+         }
+         spk_prev=spk; t_end_prev=t_end;
+       }' > $tmpdir/segments_to_fix
+# BUG-FIX from Karel, the original 'perl' code is rewritten to 'awk', had a problem in JSALT cluster,
+#join $tmpdir/utt2spk_stm $tmpdir/segments | \
+#  perl -ne '{BEGIN{$pu=""; $pt=0.0;} split;
+#           if ($pu eq $_[1] && $pt > $_[3]) {
+#             print "$_[0] $_[2] $_[3] $_[4]>$_[0] $_[2] $pt $_[4]\n"
+#           }
+#           $pu=$_[1]; $pt=$_[4]; 
+#         }' > $tmpdir/segments_to_fix
+
 if [ `cat $tmpdir/segments_to_fix | wc -l` -gt 0 ]; then
   echo "$0. Applying following fixes to segments"
   cat $tmpdir/segments_to_fix
   while read line; do
      p1=`echo $line | awk -F'>' '{print $1}'`
      p2=`echo $line | awk -F'>' '{print $2}'`
-     sed -ir "s!$p1!$p2!" $tmpdir/segments
+     sed -ir "s:$p1:$p2:" $tmpdir/segments
   done < $tmpdir/segments_to_fix
 fi
+
 
 # Copy stuff into its final locations [this has been moved from the format_data
 # script]
@@ -129,5 +159,5 @@ cp local/english.glm $dir/glm
 
 utils/validate_data_dir.sh --no-feats $dir
 
-echo AMI $DSET scenario and $SET set data preparation succeeded.
+echo AMI $ENH scenario and $SET set data preparation succeeded.
 

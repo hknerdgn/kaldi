@@ -1,0 +1,1 @@
+../../../chime3/s5/local/chime3_calc_wers_smbr.sh
