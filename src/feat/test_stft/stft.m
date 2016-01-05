@@ -1,12 +1,10 @@
 function X=stft(x,param)
 
-% stft 
-%
 % X=stft(x,param)
 %
 % Inputs:
-% x: vector of signal of length nsample
-% param: kaldi-like options
+% x: vector of signal of length nsamples
+% param: kaldi-like options struct
 %
 % Output:
 % X: nbins x nframes matrix containing the STFT coefficients 
@@ -31,7 +29,8 @@ paramdefaults={ ...
     'frame_length_ms',       'ns',      '30';...% frame length in ms
     'window_type',           'string',  'hamming';...% hamming, hanning, povey, rectangular
     'round_to_power_of_two', 'string',  'true';... % fft size power of two or not?
-    'snip_edges',            'string',  'perfect';... % true, false, or perfect. snip edges or not
+    'num_fft',               'ns',      '-1';...   % fft size given directly, if given, round_to_power_of_two is ignored
+    'snip_edges',            'string',  'perfect';... % true, false, or perfect. snip edges or not, perfect pads enough zeros at edges for perfect rec.
 % stft options
     'output_type',           'string',  'complex' ;... % complex, amplitude_and_phase, amplitude, phase
     'output_layout',         'string',  'block' ;...% block or interleaved
@@ -76,10 +75,19 @@ if (num_frames == 0)
 end
 
 % determine frequency bins
-if (strcmp(param.round_to_power_of_two,'true'))
-    num_fft = 2^(ceil(log2(frame_length)));
+if (param.num_fft > 0)
+   if (param.num_fft >= frame_length)
+      num_fft = param.num_fft;
+   else
+      num_fft = frame_length;
+      fprintf('num_fft set to %d since %d is not valid\n',frame_length,param.num_fft);
+   end
 else
-    num_fft = frame_length;
+   if (strcmp(param.round_to_power_of_two,'true'))
+       num_fft = 2^(ceil(log2(frame_length)));
+   else
+       num_fft = frame_length;
+   end
 end
 
 num_bins = num_fft/2 + 1;
@@ -123,8 +131,9 @@ elseif (strcmp(param.snip_edges,'false'))
 elseif (strcmp(param.snip_edges,'perfect'))
         for fr=1:num_frames
         ind_vec = fr*frame_shift-frame_length+(0:frame_length-1); % 0-based index
-        ind_vec(ind_vec < 0) = -ind_vec(ind_vec < 0); % 0-based index
-        ind_vec(ind_vec > nsamples-1) = nsamples - 2 - (ind_vec(ind_vec > nsamples - 1) - nsamples) ; % 0-based index
+        x(nsamples+1)=0; % add this last index for zero padding at the edges
+        ind_vec(ind_vec < 0) = nsamples; % 0-based index, will be equal to zero at edges
+        ind_vec(ind_vec > nsamples-1) = nsamples; % 0-based index, will be equal to zero edges
         xfft=fft(x(1+ind_vec).*wfunc,num_fft);
         SX(:,fr)=xfft(1:num_bins);
     end
